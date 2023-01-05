@@ -203,17 +203,17 @@ lemma CanObtainRootKey:
   & (not Ex ca m #x. SigningOracleCA(ca, m) @ #x)"
 
 // ADEM endorsements and emblem distribution
-rule Entity:
-  [ !Ltk($E, entityKey), !RootSetup($P, rootKey, oi, rootD) ]
-  --[ IsEntity($P, $E, pk(entityKey))
-    , OnlyOnce(<'entity', $E>) ]->
-  [ !EntityOf($P, $E, entityKey) ]
+rule Asset:
+  [ !Ltk($E, assetKey), !RootSetup($P, rootKey, oi, rootD) ]
+  --[ IsAsset($P, $E, pk(assetKey))
+    , OnlyOnce(<'asset', $E>) ]->
+  [ !AssetOf($P, $E, assetKey) ]
 
-rule EndorseEntity:
-  let body = <'end_int', oi, pk(entityKey)>
+rule EndorseAsset:
+  let body = <'end_int', oi, pk(assetKey)>
       endorsement = <pk(rootKey), body, sign(body, rootKey)>
   in
-  [ !EntityOf($P, $E, entityKey)
+  [ !AssetOf($P, $E, assetKey)
   , !RootSetup($P, rootKey, oi, rootD) ]
   --[ OnlyOnce(<'endorsed', $E>) ]->
   [ Out(endorsement) ]
@@ -229,9 +229,9 @@ rule EndorseParty:
 
 rule SendEmblem:
   let body = <'emblem', $E, oi>
-      emblem = <pk(entityKey), body, sign(body, entityKey)>
+      emblem = <pk(assetKey), body, sign(body, assetKey)>
   in
-  [ !EntityOf($P, $E, entityKey), !RootSetup($P, rootKey, oi, rootD) ]
+  [ !AssetOf($P, $E, assetKey), !RootSetup($P, rootKey, oi, rootD) ]
   -->
   [ Out(emblem) ]
 
@@ -289,8 +289,8 @@ rule AuthoritySetupVerified:
 
 lemma CanReceiveEmblem:
   exists-trace
-  " (Ex id oi entity entityKey rootKey p1 p2 p1Pk p2Pk #a #b #c #d.
-      VerifiedEndorsed(id, oi, entity, entityKey) @ #a
+  " (Ex id oi asset assetKey rootKey p1 p2 p1Pk p2Pk #a #b #c #d.
+      VerifiedEndorsed(id, oi, asset, assetKey) @ #a
     & VerifiedRootEndorsement(id, oi, rootKey) @ #b
     & VerifiedAuthorityEndorsement(id, p1, p1Pk, oi, rootKey) @ #c
     & VerifiedAuthorityEndorsement(id, p2, p2Pk, oi, rootKey) @ #d
@@ -307,10 +307,10 @@ lemma VerifiedAuthorityOrigin[reuse,use_induction]:
             ==> oi = p1 & p1 = p2 & #t2 = #t3 & rootKey = rk1 & rk1 = rk2))"
 
 lemma AuthenticEmblem:
-  "All id oi entity entityKey rootKey #t1 #t2.
-        ( VerifiedEndorsed(id, oi, entity, entityKey) @ #t1
+  "All id oi asset assetKey rootKey #t1 #t2.
+        ( VerifiedEndorsed(id, oi, asset, assetKey) @ #t1
         & VerifiedRootEndorsement(id, oi, rootKey) @ #t2)
-    ==> ( (Ex pp #x. IsEntity(pp, entity, entityKey) @ #x)
+    ==> ( (Ex pp #x. IsAsset(pp, asset, assetKey) @ #x)
         | (Ex p k #x #y. OI(p, oi) @ #x & CompromisedADEMKey(p, k) @ #y)
         | (Ex otherE k #x. CompromisedADEMKey(otherE, k) @ #x)
         | (not Ex authOi authPk endorsedKey #t3. VerifiedAuthorityEndorsement(id, authPk, authOi, oi, endorsedKey) @ #t3)
@@ -365,14 +365,14 @@ lemma AuthorityAccountability:
     ==> (Ex #a. CompromisedParty(pAuth) @ #a)"
 
 lemma PPAccountability:
-  "All p oi rk e1 entityKey id #t1 #t2 #t3.
+  "All p oi rk e1 assetKey id #t1 #t2 #t3.
         ( IsRootPK(p, oi, rk) @ #t1
         & VerifiedRootEndorsement(id, oi, rk) @ #t2
-        & VerifiedEndorsed(id, oi, e1, entityKey) @ #t3
+        & VerifiedEndorsed(id, oi, e1, assetKey) @ #t3
         // NOTE: It is correct to not require that e1 and e2 are the same
-        // because in our threat model, the attacker could use they entityKey
-        // for one entity anyways, but not in this model.
-        & (not Ex e2 #x. IsEntity(p, e2, entityKey) @ #x))
+        // because in our threat model, the attacker could use they assetKey
+        // for one asset anyways, but not in this model.
+        & (not Ex e2 #x. IsAsset(p, e2, assetKey) @ #x))
     ==> (Ex #a. CompromisedParty(p) @ #a)"
 
 lemma RootKeyUse:
