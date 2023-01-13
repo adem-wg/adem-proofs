@@ -843,19 +843,19 @@ guarded formula characterizing all satisfying traces:
 */
 by sorry
 
-rule (modulo E) Entity:
-   [ !Ltk( $E, entityKey ), !RootSetup( $P, rootKey, oi, rootD ) ]
-  --[ IsEntity( $P, $E, pk(entityKey) ), OnlyOnce( <'entity', $E> ) ]->
-   [ !EntityOf( $P, $E, entityKey ) ]
+rule (modulo E) Asset:
+   [ !Ltk( $E, assetKey ), !RootSetup( $P, rootKey, oi, rootD ) ]
+  --[ IsAsset( $P, $E, pk(assetKey) ), OnlyOnce( <'asset', $E> ) ]->
+   [ !AssetOf( $P, $E, assetKey ) ]
 
   /* has exactly the trivial AC variant */
 
-rule (modulo E) EndorseEntity:
-   [ !EntityOf( $P, $E, entityKey ), !RootSetup( $P, rootKey, oi, rootD ) ]
+rule (modulo E) EndorseAsset:
+   [ !AssetOf( $P, $E, assetKey ), !RootSetup( $P, rootKey, oi, rootD ) ]
   --[ OnlyOnce( <'endorsed', $E> ) ]->
    [
-   Out( <pk(rootKey), <'end_int', oi, pk(entityKey)>, 
-         sign(<'end_int', oi, pk(entityKey)>, rootKey)>
+   Out( <pk(rootKey), <'end_int', oi, pk(assetKey)>, 
+         sign(<'end_int', oi, pk(assetKey)>, rootKey)>
    )
    ]
 
@@ -876,11 +876,11 @@ rule (modulo E) EndorseParty:
   /* has exactly the trivial AC variant */
 
 rule (modulo E) SendEmblem:
-   [ !EntityOf( $P, $E, entityKey ), !RootSetup( $P, rootKey, oi, rootD ) ]
+   [ !AssetOf( $P, $E, assetKey ), !RootSetup( $P, rootKey, oi, rootD ) ]
   -->
    [
-   Out( <pk(entityKey), <'emblem', $E, oi>, 
-         sign(<'emblem', $E, oi>, entityKey)>
+   Out( <pk(assetKey), <'emblem', $E, oi>, 
+         sign(<'emblem', $E, oi>, assetKey)>
    )
    ]
 
@@ -1138,8 +1138,8 @@ rule (modulo E) AuthoritySetupVerified:
 
 lemma CanReceiveEmblem:
   exists-trace
-  "(((∃ id oi entity entityKey rootKey p1 p2 p1Pk p2Pk #a #b #c #d.
-       ((((VerifiedEndorsed( id, oi, entity, entityKey ) @ #a) ∧
+  "(((∃ id oi asset assetKey rootKey p1 p2 p1Pk p2Pk #a #b #c #d.
+       ((((VerifiedEndorsed( id, oi, asset, assetKey ) @ #a) ∧
           (VerifiedRootEndorsement( id, oi, rootKey ) @ #b)) ∧
          (VerifiedAuthorityEndorsement( id, p1, p1Pk, oi, rootKey ) @ #c)) ∧
         (VerifiedAuthorityEndorsement( id, p2, p2Pk, oi, rootKey ) @ #d)) ∧
@@ -1149,8 +1149,8 @@ lemma CanReceiveEmblem:
    (¬(∃ ca m #x. SigningOracleCA( ca, m ) @ #x))"
 /*
 guarded formula characterizing all satisfying traces:
-"(∃ id oi entity entityKey rootKey p1 p2 p1Pk p2Pk #a #b #c #d.
-   (VerifiedEndorsed( id, oi, entity, entityKey ) @ #a) ∧
+"(∃ id oi asset assetKey rootKey p1 p2 p1Pk p2Pk #a #b #c #d.
+   (VerifiedEndorsed( id, oi, asset, assetKey ) @ #a) ∧
    (VerifiedRootEndorsement( id, oi, rootKey ) @ #b) ∧
    (VerifiedAuthorityEndorsement( id, p1, p1Pk, oi, rootKey ) @ #c) ∧
    (VerifiedAuthorityEndorsement( id, p2, p2Pk, oi, rootKey ) @ #d)
@@ -1283,10 +1283,10 @@ qed
 
 lemma AuthenticEmblem:
   all-traces
-  "∀ id oi entity entityKey rootKey #t1 #t2.
-    ((VerifiedEndorsed( id, oi, entity, entityKey ) @ #t1) ∧
+  "∀ id oi asset assetKey rootKey #t1 #t2.
+    ((VerifiedEndorsed( id, oi, asset, assetKey ) @ #t1) ∧
      (VerifiedRootEndorsement( id, oi, rootKey ) @ #t2)) ⇒
-    (((((∃ pp #x. IsEntity( pp, entity, entityKey ) @ #x) ∨
+    (((((∃ pp #x. IsAsset( pp, asset, assetKey ) @ #x) ∨
         (∃ p k #x #y. (OI( p, oi ) @ #x) ∧ (CompromisedADEMKey( p, k ) @ #y))) ∨
        (∃ otherE k #x. CompromisedADEMKey( otherE, k ) @ #x)) ∨
       (¬(∃ authOi authPk endorsedKey #t3.
@@ -1300,11 +1300,11 @@ lemma AuthenticEmblem:
         (¬(∃ p #y. IsRootPK( p, authOI, authPk ) @ #y)))))"
 /*
 guarded formula characterizing all counter-examples:
-"∃ id oi entity entityKey rootKey #t1 #t2.
-  (VerifiedEndorsed( id, oi, entity, entityKey ) @ #t1) ∧
+"∃ id oi asset assetKey rootKey #t1 #t2.
+  (VerifiedEndorsed( id, oi, asset, assetKey ) @ #t1) ∧
   (VerifiedRootEndorsement( id, oi, rootKey ) @ #t2)
  ∧
-  (∀ pp #x. (IsEntity( pp, entity, entityKey ) @ #x) ⇒ ⊥) ∧
+  (∀ pp #x. (IsAsset( pp, asset, assetKey ) @ #x) ⇒ ⊥) ∧
   (∀ p k #x #y.
     (OI( p, oi ) @ #x) ∧ (CompromisedADEMKey( p, k ) @ #y) ⇒ ⊥) ∧
   (∀ otherE k #x. (CompromisedADEMKey( otherE, k ) @ #x) ⇒ ⊥) ∧
@@ -1693,7 +1693,7 @@ solve( RootDomains( $P, ~rootKey, authOI, rootD ) ▶₁ #y )
     next
       case c_sign
       solve( !KU( sign(<'end_int', oi, pk(x)>, x.1) ) @ #vk.27 )
-        case EndorseEntity_case_1
+        case EndorseAsset_case_1
         solve( !KU( ~ltk ) @ #vk.43 )
           case Reveal
           by contradiction /* from formulas */
@@ -1708,7 +1708,7 @@ solve( RootDomains( $P, ~rootKey, authOI, rootD ) ▶₁ #y )
           qed
         qed
       next
-        case EndorseEntity_case_2
+        case EndorseAsset_case_2
         solve( !KU( ~ltk ) @ #vk.43 )
           case Reveal
           by contradiction /* from formulas */
@@ -1723,7 +1723,7 @@ solve( RootDomains( $P, ~rootKey, authOI, rootD ) ▶₁ #y )
           qed
         qed
       next
-        case EndorseEntity_case_3
+        case EndorseAsset_case_3
         solve( !KU( ~ltk ) @ #vk.43 )
           case Reveal
           by contradiction /* from formulas */
@@ -2611,20 +2611,20 @@ qed
 
 lemma PPAccountability:
   all-traces
-  "∀ p oi rk e1 entityKey id #t1 #t2 #t3.
+  "∀ p oi rk e1 assetKey id #t1 #t2 #t3.
     ((((IsRootPK( p, oi, rk ) @ #t1) ∧
        (VerifiedRootEndorsement( id, oi, rk ) @ #t2)) ∧
-      (VerifiedEndorsed( id, oi, e1, entityKey ) @ #t3)) ∧
-     (¬(∃ e2 #x. IsEntity( p, e2, entityKey ) @ #x))) ⇒
+      (VerifiedEndorsed( id, oi, e1, assetKey ) @ #t3)) ∧
+     (¬(∃ e2 #x. IsAsset( p, e2, assetKey ) @ #x))) ⇒
     (∃ #a. CompromisedParty( p ) @ #a)"
 /*
 guarded formula characterizing all counter-examples:
-"∃ p oi rk e1 entityKey id #t1 #t2 #t3.
+"∃ p oi rk e1 assetKey id #t1 #t2 #t3.
   (IsRootPK( p, oi, rk ) @ #t1) ∧
   (VerifiedRootEndorsement( id, oi, rk ) @ #t2) ∧
-  (VerifiedEndorsed( id, oi, e1, entityKey ) @ #t3)
+  (VerifiedEndorsed( id, oi, e1, assetKey ) @ #t3)
  ∧
-  (∀ e2 #x. (IsEntity( p, e2, entityKey ) @ #x) ⇒ ⊥) ∧
+  (∀ e2 #x. (IsAsset( p, e2, assetKey ) @ #x) ⇒ ⊥) ∧
   (∀ #a. (CompromisedParty( p ) @ #a) ⇒ ⊥)"
 */
 simplify
@@ -2635,7 +2635,7 @@ solve( RootDomains( $P, ~rootKey, oi, rootD ) ▶₁ #t1 )
     solve( !TLSKey( $P, $CA, $OI, tlsSk ) ▶₂ #t1 )
       case TLSKeyRegister
       solve( !KU( sign(<'end_int', $OI, pk(x)>, ~rootKey) ) @ #vk.30 )
-        case EndorseEntity
+        case EndorseAsset
         by contradiction /* from formulas */
       next
         case c_sign
@@ -2656,10 +2656,10 @@ solve( RootDomains( $P, ~rootKey, oi, rootD ) ▶₁ #t1 )
     next
       case TLSKeyShare
       solve( !KU( sign(<'end_int', $OI, pk(x)>, ~rootKey) ) @ #vk.30 )
-        case EndorseEntity_case_1
+        case EndorseAsset_case_1
         by contradiction /* from formulas */
       next
-        case EndorseEntity_case_2
+        case EndorseAsset_case_2
         by contradiction /* from formulas */
       next
         case c_sign
@@ -2997,280 +2997,6 @@ next
   next
     case RootKeyLearn_case_48
     by contradiction /* from formulas */
-  qed
-qed
-
-lemma CertBindingIsImpliedAuthority:
-  all-traces
-  "∀ p oi rk_true rk_false id oiPP rkPP #t1 #t2.
-    (((IsRootPK( p, oi, rk_true ) @ #t1) ∧
-      (VerifiedAuthorityEndorsement( id, oi, rk_false, oiPP, rkPP ) @ #t2)) ∧
-     (¬(rk_true = rk_false))) ⇒
-    (∃ ca caSk log logSk certBody certSig sctBody sctSig tlsPk #t3 #t4 #t5
-       #t6.
-      (((((((CASk( ca, caSk ) @ #t3) ∧ (LogSk( log, logSk ) @ #t4)) ∧
-           (certBody = <'cert', ca, <oi, sha256(rk_false)>, tlsPk>)) ∧
-          (certSig = sign(certBody, caSk))) ∧
-         (RootCertVerified( <certBody, certSig> ) @ #t5)) ∧
-        (sctBody = <'sct', certBody>)) ∧
-       (sctSig = sign(sctBody, logSk))) ∧
-      (RootSCTVerified( <sctBody, sctSig> ) @ #t6))"
-/*
-guarded formula characterizing all counter-examples:
-"∃ p oi rk_true rk_false id oiPP rkPP #t1 #t2.
-  (IsRootPK( p, oi, rk_true ) @ #t1) ∧
-  (VerifiedAuthorityEndorsement( id, oi, rk_false, oiPP, rkPP ) @ #t2)
- ∧
-  (¬(rk_true = rk_false)) ∧
-  (∀ ca caSk log logSk certBody certSig sctBody sctSig tlsPk #t3 #t4 #t5
-     #t6.
-    (CASk( ca, caSk ) @ #t3) ∧
-    (LogSk( log, logSk ) @ #t4) ∧
-    (certBody = <'cert', ca, <oi, sha256(rk_false)>, tlsPk>) ∧
-    (certSig = sign(certBody, caSk)) ∧
-    (RootCertVerified( <certBody, certSig> ) @ #t5) ∧
-    (sctBody = <'sct', certBody>) ∧
-    (sctSig = sign(sctBody, logSk)) ∧
-    (RootSCTVerified( <sctBody, sctSig> ) @ #t6)
-   ⇒
-    ⊥)"
-*/
-simplify
-solve( RootKeyResponse( ~sess, oi, rk_false ) ▶₁ #t2 )
-  case RootKeyLearn_case_01
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_02
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_03
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_04
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_05
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_06
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_07
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_08
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_09
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_10
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_11
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_12
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_13
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_14
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_15
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_16
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_17
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_18
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_19
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_20
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_21
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_22
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_23
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_24
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_25
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_26
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_27
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_28
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_29
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_30
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_31
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_32
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_33
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_34
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_35
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_36
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_37
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_38
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_39
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_40
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_41
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_42
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_43
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_44
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_45
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_46
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_47
-  by contradiction /* from formulas */
-next
-  case RootKeyLearn_case_48
-  by contradiction /* from formulas */
-qed
-
-lemma CertBindingIsImpliedPP:
-  all-traces
-  "∀ p oi rk_true rk_false id #t1 #t2.
-    (((IsRootPK( p, oi, rk_true ) @ #t1) ∧
-      (VerifiedRootEndorsement( id, oi, rk_false ) @ #t2)) ∧
-     (¬(rk_true = rk_false))) ⇒
-    (∃ ca caSk log logSk certBody tlsPk certSig sctBody sctSig #t3 #t4 #t5
-       #t6.
-      (((((((CASk( ca, caSk ) @ #t3) ∧ (LogSk( log, logSk ) @ #t4)) ∧
-           (certBody = <'cert', ca, <oi, sha256(rk_false)>, tlsPk>)) ∧
-          (certSig = sign(certBody, caSk))) ∧
-         (RootCertVerified( <certBody, certSig> ) @ #t5)) ∧
-        (sctBody = <'sct', certBody>)) ∧
-       (sctSig = sign(sctBody, logSk))) ∧
-      (RootSCTVerified( <sctBody, sctSig> ) @ #t6))"
-/*
-guarded formula characterizing all counter-examples:
-"∃ p oi rk_true rk_false id #t1 #t2.
-  (IsRootPK( p, oi, rk_true ) @ #t1) ∧
-  (VerifiedRootEndorsement( id, oi, rk_false ) @ #t2)
- ∧
-  (¬(rk_true = rk_false)) ∧
-  (∀ ca caSk log logSk certBody tlsPk certSig sctBody sctSig #t3 #t4 #t5
-     #t6.
-    (CASk( ca, caSk ) @ #t3) ∧
-    (LogSk( log, logSk ) @ #t4) ∧
-    (certBody = <'cert', ca, <oi, sha256(rk_false)>, tlsPk>) ∧
-    (certSig = sign(certBody, caSk)) ∧
-    (RootCertVerified( <certBody, certSig> ) @ #t5) ∧
-    (sctBody = <'sct', certBody>) ∧
-    (sctSig = sign(sctBody, logSk)) ∧
-    (RootSCTVerified( <sctBody, sctSig> ) @ #t6)
-   ⇒
-    ⊥)"
-*/
-simplify
-solve( RootDomains( $P, ~rootKey, oi, rootD ) ▶₁ #t1 )
-  case RootSetupDomains
-  solve( VerifyEndorsements( ~id, ~sess, $OI, $E, epk ) ▶₀ #t2 )
-    case ReceiveEmblem
-    solve( RootKeyResponse( ~sess, $OI, pk(x.1) ) ▶₁ #t2 )
-      case RootKeyLearn_case_01
-      by contradiction /* from formulas */
-    next
-      case RootKeyLearn_case_02
-      by contradiction /* from formulas */
-    next
-      case RootKeyLearn_case_03
-      by contradiction /* from formulas */
-    next
-      case RootKeyLearn_case_04
-      by contradiction /* from formulas */
-    next
-      case RootKeyLearn_case_05
-      by contradiction /* from formulas */
-    next
-      case RootKeyLearn_case_06
-      by contradiction /* from formulas */
-    next
-      case RootKeyLearn_case_07
-      by contradiction /* from formulas */
-    next
-      case RootKeyLearn_case_08
-      by contradiction /* from formulas */
-    next
-      case RootKeyLearn_case_09
-      by contradiction /* from formulas */
-    next
-      case RootKeyLearn_case_10
-      by contradiction /* from formulas */
-    next
-      case RootKeyLearn_case_11
-      by contradiction /* from formulas */
-    next
-      case RootKeyLearn_case_12
-      by contradiction /* from formulas */
-    next
-      case RootKeyLearn_case_13
-      by contradiction /* from formulas */
-    next
-      case RootKeyLearn_case_14
-      by contradiction /* from formulas */
-    next
-      case RootKeyLearn_case_15
-      by contradiction /* from formulas */
-    next
-      case RootKeyLearn_case_16
-      by contradiction /* from formulas */
-    qed
   qed
 qed
 

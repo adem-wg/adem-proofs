@@ -933,7 +933,7 @@ solve( !CA( $CA, skCA ) ▶₀ #t )
                                                ) ▶₁₀ #t )
                                           case DNSEntryUpdate
                                           solve( !KU( pk(~ltk.1) ) @ #vk.30 )
-                                            case EndorseEntity_case_1
+                                            case EndorseAsset_case_1
                                             solve( !TLSKey( $E, $CA.1, $OI.1, ~skUser ) ▶₀ #vr.51 )
                                               case TLSKeyRegister
                                               solve( !DomainOwner( $E, $OI.1 ) ▶₁ #vr.53 )
@@ -987,23 +987,21 @@ solve( !CA( $CA, skCA ) ▶₀ #t )
   qed
 qed
 
-rule (modulo E) Entity:
-   [ !Ltk( $E, entityKey ), !RootSetup( $P, rootKey, oi, rootD ) ]
-  --[ IsEntity( $P, $E, pk(entityKey) ), OnlyOnce( <'entity', $E> )
-  ]->
-   [ !EntityOf( $P, $E, entityKey ) ]
+rule (modulo E) Asset:
+   [ !Ltk( $E, assetKey ), !RootSetup( $P, rootKey, oi, rootD ) ]
+  --[ IsAsset( $P, $E, pk(assetKey) ), OnlyOnce( <'asset', $E> ) ]->
+   [ !AssetOf( $P, $E, assetKey ) ]
 
   /* has exactly the trivial AC variant */
 
-rule (modulo E) EndorseEntity:
+rule (modulo E) EndorseAsset:
    [
-   !EntityOf( $P, $E, entityKey ),
-   !RootSetup( $P, rootKey, oi, rootD )
+   !AssetOf( $P, $E, assetKey ), !RootSetup( $P, rootKey, oi, rootD )
    ]
   --[ OnlyOnce( <'endorsed', $E> ) ]->
    [
-   Out( <pk(rootKey), <'end_int', oi, pk(entityKey)>, 
-         sign(<'end_int', oi, pk(entityKey)>, rootKey)>
+   Out( <pk(rootKey), <'end_int', oi, pk(assetKey)>, 
+         sign(<'end_int', oi, pk(assetKey)>, rootKey)>
    )
    ]
 
@@ -1025,13 +1023,12 @@ rule (modulo E) EndorseParty:
 
 rule (modulo E) SendEmblem:
    [
-   !EntityOf( $P, $E, entityKey ),
-   !RootSetup( $P, rootKey, oi, rootD )
+   !AssetOf( $P, $E, assetKey ), !RootSetup( $P, rootKey, oi, rootD )
    ]
   -->
    [
-   Out( <pk(entityKey), <'emblem', $E, oi>, 
-         sign(<'emblem', $E, oi>, entityKey)>
+   Out( <pk(assetKey), <'emblem', $E, oi>, 
+         sign(<'emblem', $E, oi>, assetKey)>
    )
    ]
 
@@ -1303,8 +1300,8 @@ rule (modulo E) AuthoritySetupVerified:
 
 lemma CanReceiveEmblem:
   exists-trace
-  "(((∃ id oi entity entityKey rootKey p1 p2 p1Pk p2Pk #a #b #c #d.
-       ((((VerifiedEndorsed( id, oi, entity, entityKey ) @ #a) ∧
+  "(((∃ id oi asset assetKey rootKey p1 p2 p1Pk p2Pk #a #b #c #d.
+       ((((VerifiedEndorsed( id, oi, asset, assetKey ) @ #a) ∧
           (VerifiedRootEndorsement( id, oi, rootKey ) @ #b)) ∧
          (VerifiedAuthorityEndorsement( id, p1, p1Pk, oi, rootKey ) @ #c)) ∧
         (VerifiedAuthorityEndorsement( id, p2, p2Pk, oi, rootKey ) @ #d)) ∧
@@ -1314,8 +1311,8 @@ lemma CanReceiveEmblem:
    (¬(∃ ca m #x. SigningOracleCA( ca, m ) @ #x))"
 /*
 guarded formula characterizing all satisfying traces:
-"(∃ id oi entity entityKey rootKey p1 p2 p1Pk p2Pk #a #b #c #d.
-   (VerifiedEndorsed( id, oi, entity, entityKey ) @ #a) ∧
+"(∃ id oi asset assetKey rootKey p1 p2 p1Pk p2Pk #a #b #c #d.
+   (VerifiedEndorsed( id, oi, asset, assetKey ) @ #a) ∧
    (VerifiedRootEndorsement( id, oi, rootKey ) @ #b) ∧
    (VerifiedAuthorityEndorsement( id, p1, p1Pk, oi, rootKey ) @ #c) ∧
    (VerifiedAuthorityEndorsement( id, p2, p2Pk, oi, rootKey ) @ #d)
@@ -1363,7 +1360,7 @@ solve( !CA( $CA, ~skCA ) ▶₀ #a )
                       solve( !DomainOwner( $A, $OI ) ▶₁ #vr.54 )
                         case DomainRegister
                         solve( !KU( sign(<'end_int', $OI, pk(~ltk)>, x) ) @ #vk.69 )
-                          case EndorseEntity
+                          case EndorseAsset
                           solve( !KU( sign(<'cert', $CA.1, auth, pk(tlsSk)>, ~skCA.1)
                                  ) @ #vk.77 )
                             case CertificateRequest_case_1
@@ -1521,7 +1518,7 @@ solve( !CA( $CA, ~skCA ) ▶₀ #a )
                                                                                             ) ▶₀ #vr.110 )
                                                                                 qed
                                                                               next
-                                                                                case EndorseEntity_case_1
+                                                                                case EndorseAsset_case_1
                                                                                 solve( !TLSKey( $E,
                                                                                                 $CA.3,
                                                                                                 $OI.3,
@@ -1576,7 +1573,7 @@ solve( !CA( $CA, ~skCA ) ▶₀ #a )
                                                                                                       ) ▶₀ #vr.125 )
                                                                                           qed
                                                                                         next
-                                                                                          case EndorseEntity_case_1
+                                                                                          case EndorseAsset_case_1
                                                                                           solve( !KU( pk(~ltk.2)
                                                                                                  ) @ #vk.91 )
                                                                                             case CertificateRequest_case_1
@@ -1600,7 +1597,7 @@ solve( !CA( $CA, ~skCA ) ▶₀ #a )
                                                                                                         ) ▶₀ #vr.129 )
                                                                                             qed
                                                                                           next
-                                                                                            case EndorseEntity_case_1
+                                                                                            case EndorseAsset_case_1
                                                                                             solve( !KU( pk(~ltk.3)
                                                                                                    ) @ #vk.101 )
                                                                                               case CertificateRequest_case_1
@@ -1624,7 +1621,7 @@ solve( !CA( $CA, ~skCA ) ▶₀ #a )
                                                                                                           ) ▶₀ #vr.133 )
                                                                                               qed
                                                                                             next
-                                                                                              case EndorseEntity_case_1
+                                                                                              case EndorseAsset_case_1
                                                                                               solve( !KU( pk(~skTLS)
                                                                                                      ) @ #vk.81 )
                                                                                                 case CertificateRequest_case_1
@@ -3501,13 +3498,13 @@ solve( !CA( $CA, ~skCA ) ▶₀ #a )
                                                                                                 by sorry
                                                                                               qed
                                                                                             next
-                                                                                              case EndorseEntity_case_2
+                                                                                              case EndorseAsset_case_2
                                                                                               by sorry
                                                                                             next
-                                                                                              case EndorseEntity_case_3
+                                                                                              case EndorseAsset_case_3
                                                                                               by sorry
                                                                                             next
-                                                                                              case EndorseEntity_case_4
+                                                                                              case EndorseAsset_case_4
                                                                                               by sorry
                                                                                             next
                                                                                               case EndorseParty_case_1
@@ -3547,13 +3544,13 @@ solve( !CA( $CA, ~skCA ) ▶₀ #a )
                                                                                               by sorry
                                                                                             qed
                                                                                           next
-                                                                                            case EndorseEntity_case_2
+                                                                                            case EndorseAsset_case_2
                                                                                             by sorry
                                                                                           next
-                                                                                            case EndorseEntity_case_3
+                                                                                            case EndorseAsset_case_3
                                                                                             by sorry
                                                                                           next
-                                                                                            case EndorseEntity_case_4
+                                                                                            case EndorseAsset_case_4
                                                                                             by sorry
                                                                                           next
                                                                                             case EndorseParty_case_1
@@ -3593,13 +3590,13 @@ solve( !CA( $CA, ~skCA ) ▶₀ #a )
                                                                                             by sorry
                                                                                           qed
                                                                                         next
-                                                                                          case EndorseEntity_case_2
+                                                                                          case EndorseAsset_case_2
                                                                                           by sorry
                                                                                         next
-                                                                                          case EndorseEntity_case_3
+                                                                                          case EndorseAsset_case_3
                                                                                           by sorry
                                                                                         next
-                                                                                          case EndorseEntity_case_4
+                                                                                          case EndorseAsset_case_4
                                                                                           by sorry
                                                                                         next
                                                                                           case EndorseParty_case_1
@@ -3661,13 +3658,13 @@ solve( !CA( $CA, ~skCA ) ▶₀ #a )
                                                                                   qed
                                                                                 qed
                                                                               next
-                                                                                case EndorseEntity_case_2
+                                                                                case EndorseAsset_case_2
                                                                                 by sorry
                                                                               next
-                                                                                case EndorseEntity_case_3
+                                                                                case EndorseAsset_case_3
                                                                                 by sorry
                                                                               next
-                                                                                case EndorseEntity_case_4
+                                                                                case EndorseAsset_case_4
                                                                                 by sorry
                                                                               next
                                                                                 case EndorseParty_case_01
@@ -4099,10 +4096,10 @@ by sorry
 
 lemma AuthenticEmblem:
   all-traces
-  "∀ id oi entity entityKey rootKey #t1 #t2.
-    ((VerifiedEndorsed( id, oi, entity, entityKey ) @ #t1) ∧
+  "∀ id oi asset assetKey rootKey #t1 #t2.
+    ((VerifiedEndorsed( id, oi, asset, assetKey ) @ #t1) ∧
      (VerifiedRootEndorsement( id, oi, rootKey ) @ #t2)) ⇒
-    (((((∃ pp #x. IsEntity( pp, entity, entityKey ) @ #x) ∨
+    (((((∃ pp #x. IsAsset( pp, asset, assetKey ) @ #x) ∨
         (∃ p k #x #y.
           (OI( p, oi ) @ #x) ∧ (CompromisedADEMKey( p, k ) @ #y))) ∨
        (∃ otherE k #x. CompromisedADEMKey( otherE, k ) @ #x)) ∨
@@ -4117,11 +4114,11 @@ lemma AuthenticEmblem:
         (¬(∃ p #y. IsRootPK( p, authOI, authPk ) @ #y)))))"
 /*
 guarded formula characterizing all counter-examples:
-"∃ id oi entity entityKey rootKey #t1 #t2.
-  (VerifiedEndorsed( id, oi, entity, entityKey ) @ #t1) ∧
+"∃ id oi asset assetKey rootKey #t1 #t2.
+  (VerifiedEndorsed( id, oi, asset, assetKey ) @ #t1) ∧
   (VerifiedRootEndorsement( id, oi, rootKey ) @ #t2)
  ∧
-  (∀ pp #x. (IsEntity( pp, entity, entityKey ) @ #x) ⇒ ⊥) ∧
+  (∀ pp #x. (IsAsset( pp, asset, assetKey ) @ #x) ⇒ ⊥) ∧
   (∀ p k #x #y.
     (OI( p, oi ) @ #x) ∧ (CompromisedADEMKey( p, k ) @ #y) ⇒ ⊥) ∧
   (∀ otherE k #x. (CompromisedADEMKey( otherE, k ) @ #x) ⇒ ⊥) ∧
@@ -4251,20 +4248,20 @@ by sorry
 
 lemma PPAccountability:
   all-traces
-  "∀ p oi rk e1 entityKey id #t1 #t2 #t3.
+  "∀ p oi rk e1 assetKey id #t1 #t2 #t3.
     ((((IsRootPK( p, oi, rk ) @ #t1) ∧
        (VerifiedRootEndorsement( id, oi, rk ) @ #t2)) ∧
-      (VerifiedEndorsed( id, oi, e1, entityKey ) @ #t3)) ∧
-     (¬(∃ e2 #x. IsEntity( p, e2, entityKey ) @ #x))) ⇒
+      (VerifiedEndorsed( id, oi, e1, assetKey ) @ #t3)) ∧
+     (¬(∃ e2 #x. IsAsset( p, e2, assetKey ) @ #x))) ⇒
     (∃ #a. CompromisedParty( p ) @ #a)"
 /*
 guarded formula characterizing all counter-examples:
-"∃ p oi rk e1 entityKey id #t1 #t2 #t3.
+"∃ p oi rk e1 assetKey id #t1 #t2 #t3.
   (IsRootPK( p, oi, rk ) @ #t1) ∧
   (VerifiedRootEndorsement( id, oi, rk ) @ #t2) ∧
-  (VerifiedEndorsed( id, oi, e1, entityKey ) @ #t3)
+  (VerifiedEndorsed( id, oi, e1, assetKey ) @ #t3)
  ∧
-  (∀ e2 #x. (IsEntity( p, e2, entityKey ) @ #x) ⇒ ⊥) ∧
+  (∀ e2 #x. (IsAsset( p, e2, assetKey ) @ #x) ⇒ ⊥) ∧
   (∀ #a. (CompromisedParty( p ) @ #a) ⇒ ⊥)"
 */
 by sorry
@@ -4290,82 +4287,6 @@ guarded formula characterizing all counter-examples:
    (RootSCTVerified( <sctBody, sctSig> ) @ #y)
   ⇒
    ⊥"
-*/
-by sorry
-
-lemma CertBindingIsImpliedAuthority:
-  all-traces
-  "∀ p oi rk_true rk_false id oiPP rkPP #t1 #t2.
-    (((IsRootPK( p, oi, rk_true ) @ #t1) ∧
-      (VerifiedAuthorityEndorsement( id, oi, rk_false, oiPP, rkPP
-       ) @ #t2)) ∧
-     (¬(rk_true = rk_false))) ⇒
-    (∃ ca caSk log logSk certBody certSig sctBody sctSig tlsPk #t3 #t4
-       #t5 #t6.
-      (((((((CASk( ca, caSk ) @ #t3) ∧ (LogSk( log, logSk ) @ #t4)) ∧
-           (certBody = <'cert', ca, <oi, sha256(rk_false)>, tlsPk>)) ∧
-          (certSig = sign(certBody, caSk))) ∧
-         (RootCertVerified( <certBody, certSig> ) @ #t5)) ∧
-        (sctBody = <'sct', certBody>)) ∧
-       (sctSig = sign(sctBody, logSk))) ∧
-      (RootSCTVerified( <sctBody, sctSig> ) @ #t6))"
-/*
-guarded formula characterizing all counter-examples:
-"∃ p oi rk_true rk_false id oiPP rkPP #t1 #t2.
-  (IsRootPK( p, oi, rk_true ) @ #t1) ∧
-  (VerifiedAuthorityEndorsement( id, oi, rk_false, oiPP, rkPP
-   ) @ #t2)
- ∧
-  (¬(rk_true = rk_false)) ∧
-  (∀ ca caSk log logSk certBody certSig sctBody sctSig tlsPk #t3 #t4
-     #t5 #t6.
-    (CASk( ca, caSk ) @ #t3) ∧
-    (LogSk( log, logSk ) @ #t4) ∧
-    (certBody = <'cert', ca, <oi, sha256(rk_false)>, tlsPk>) ∧
-    (certSig = sign(certBody, caSk)) ∧
-    (RootCertVerified( <certBody, certSig> ) @ #t5) ∧
-    (sctBody = <'sct', certBody>) ∧
-    (sctSig = sign(sctBody, logSk)) ∧
-    (RootSCTVerified( <sctBody, sctSig> ) @ #t6)
-   ⇒
-    ⊥)"
-*/
-by sorry
-
-lemma CertBindingIsImpliedPP:
-  all-traces
-  "∀ p oi rk_true rk_false id #t1 #t2.
-    (((IsRootPK( p, oi, rk_true ) @ #t1) ∧
-      (VerifiedRootEndorsement( id, oi, rk_false ) @ #t2)) ∧
-     (¬(rk_true = rk_false))) ⇒
-    (∃ ca caSk log logSk certBody tlsPk certSig sctBody sctSig #t3 #t4
-       #t5 #t6.
-      (((((((CASk( ca, caSk ) @ #t3) ∧ (LogSk( log, logSk ) @ #t4)) ∧
-           (certBody = <'cert', ca, <oi, sha256(rk_false)>, tlsPk>)) ∧
-          (certSig = sign(certBody, caSk))) ∧
-         (RootCertVerified( <certBody, certSig> ) @ #t5)) ∧
-        (sctBody = <'sct', certBody>)) ∧
-       (sctSig = sign(sctBody, logSk))) ∧
-      (RootSCTVerified( <sctBody, sctSig> ) @ #t6))"
-/*
-guarded formula characterizing all counter-examples:
-"∃ p oi rk_true rk_false id #t1 #t2.
-  (IsRootPK( p, oi, rk_true ) @ #t1) ∧
-  (VerifiedRootEndorsement( id, oi, rk_false ) @ #t2)
- ∧
-  (¬(rk_true = rk_false)) ∧
-  (∀ ca caSk log logSk certBody tlsPk certSig sctBody sctSig #t3 #t4
-     #t5 #t6.
-    (CASk( ca, caSk ) @ #t3) ∧
-    (LogSk( log, logSk ) @ #t4) ∧
-    (certBody = <'cert', ca, <oi, sha256(rk_false)>, tlsPk>) ∧
-    (certSig = sign(certBody, caSk)) ∧
-    (RootCertVerified( <certBody, certSig> ) @ #t5) ∧
-    (sctBody = <'sct', certBody>) ∧
-    (sctSig = sign(sctBody, logSk)) ∧
-    (RootSCTVerified( <sctBody, sctSig> ) @ #t6)
-   ⇒
-    ⊥)"
 */
 by sorry
 
