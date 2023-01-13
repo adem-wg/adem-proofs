@@ -384,36 +384,6 @@ lemma RootKeyUse:
           & sctSig = sign(sctBody, logSk)
           & RootSCTVerified(<sctBody, sctSig>) @ #y))"
 
-lemma CertBindingIsImpliedAuthority:
-  "All p oi rk_true rk_false id oiPP rkPP #t1 #t2.
-        ( IsRootPK(p, oi, rk_true) @ #t1
-        & VerifiedAuthorityEndorsement(id, oi, rk_false, oiPP, rkPP) @ #t2
-        & not (rk_true = rk_false))
-    ==> (Ex ca caSk log logSk certBody certSig sctBody sctSig tlsPk #t3 #t4 #t5 #t6.
-          CASk(ca, caSk) @ #t3
-        & LogSk(log, logSk) @ #t4
-        & certBody = <'cert', ca, <oi, sha256(rk_false)>, tlsPk>
-        & certSig = sign(certBody, caSk)
-        & RootCertVerified(<certBody, certSig>) @ #t5
-        & sctBody = <'sct', certBody>
-        & sctSig = sign(sctBody, logSk)
-        & RootSCTVerified(<sctBody, sctSig>) @ #t6)"
-
-lemma CertBindingIsImpliedPP:
-  "All p oi rk_true rk_false id #t1 #t2.
-        ( IsRootPK(p, oi, rk_true) @ #t1
-        & VerifiedRootEndorsement(id, oi, rk_false) @ #t2
-        & not (rk_true = rk_false))
-    ==> (Ex ca caSk log logSk certBody tlsPk certSig sctBody sctSig #t3 #t4 #t5 #t6.
-          CASk(ca, caSk) @ #t3
-        & LogSk(log, logSk) @ #t4
-        & certBody = <'cert', ca, <oi, sha256(rk_false)>, tlsPk>
-        & certSig = sign(certBody, caSk)
-        & RootCertVerified(<certBody, certSig>) @ #t5
-        & sctBody = <'sct', certBody>
-        & sctSig = sign(sctBody, logSk)
-        & RootSCTVerified(<sctBody, sctSig>) @ #t6)"
-
 restriction Eq:
     "All a b #i. Eq(a, b) @ #i ==> a = b"
 
