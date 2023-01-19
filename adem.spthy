@@ -25,21 +25,6 @@ rule DomainCompromise:
   --[ CompromisedDomain(d) ]->
   [ !DomainCompromised(d) ]
 
-rule DNSEntryInit:
-  [ !DomainOwner($A, d) ]
-  -->
-  [ DNSEntry(d, 'null') ]
-
-rule DNSEntryUpdate:
-  [ DNSEntry(d, drop), DNSUpdate(d, new) ]
-  -->
-  [ DNSEntry(d, new) ]
-
-rule DNSEntryUpdateAdversary:
-  [ DNSEntry(d, drop), In(new), !DomainCompromised(d) ]
-  -->
-  [ DNSEntry(d, new) ]
-
 // Certificate Transparency
 rule LogRegister:
   [ Fr(~skLog) ]
@@ -139,7 +124,6 @@ rule RootSetupDomains:
   --[ OnlyOnce(<'root', $Party>)
     , OI($Party, $OI) ]->
   [ DomainRegister($Party, $OI), DomainRegister($Party, rootD)
-  , DNSUpdate(rootD, $IP)  // simply set the DNS entry to *some* value
   , RootDomains($Party, ~ltk, $OI, rootD) ]
 
 rule RootSetupCertificates:
@@ -182,18 +166,15 @@ rule RootKeyLearn:
   , !MHTLeaf($Log, certOi), !MHTLeaf($Log, certRootD)
   , !StoredSig($Log, certOiSig), !StoredSig($Log, certRootDSig)
   , In(tlsServerMsg(~sess, oi, tlsSk, <'root_key', rootKey>))
-  , In(<sctOi, sctOiSig>), In(<sctRootD, sctRootDSig>)
-  , DNSEntry(<oi, sha256(rootKey)>, something) ]
+  , In(<sctOi, sctOiSig>), In(<sctRootD, sctRootDSig>) ]
   --[ Eq(verify(sctOiSig, sctOi, pk(skLog)), true)
     , Eq(verify(sctRootDSig, sctRootD, pk(skLog)), true)
     , Eq(verify(certOiSig, certOi, pk(skCA)), true)
     , Eq(verify(certRootDSig, certRootD, pk(skCA)), true)
-    , Neq(something, 'null')
     , ObtainedRootKey(oi, rootKey)
     , RootCertVerified(<certRootD, certRootDSig>)
     , RootSCTVerified(<sctRootD, sctRootDSig>) ]->
-  [ DNSEntry(<oi, sha256(rootKey)>, something)
-  , RootKeyResponse(~sess, oi, rootKey) ]
+  [ RootKeyResponse(~sess, oi, rootKey) ]
 
 lemma CanObtainRootKey:
   exists-trace

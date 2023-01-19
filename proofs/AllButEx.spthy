@@ -40,25 +40,6 @@ rule (modulo E) DomainCompromise:
 
   /* has exactly the trivial AC variant */
 
-rule (modulo E) DNSEntryInit:
-   [ !DomainOwner( $A, d ) ] --> [ DNSEntry( d, 'null' ) ]
-
-  /* has exactly the trivial AC variant */
-
-rule (modulo E) DNSEntryUpdate:
-   [ DNSEntry( d, drop ), DNSUpdate( d, new ) ] --> [ DNSEntry( d, new ) ]
-
-  // loop breaker: [0]
-  /* has exactly the trivial AC variant */
-
-rule (modulo E) DNSEntryUpdateAdversary:
-   [ DNSEntry( d, drop ), In( new ), !DomainCompromised( d ) ]
-  -->
-   [ DNSEntry( d, new ) ]
-
-  // loop breaker: [0]
-  /* has exactly the trivial AC variant */
-
 rule (modulo E) LogRegister:
    [ Fr( ~skLog ) ]
   --[ LogSk( $Log, ~skLog ) ]->
@@ -238,7 +219,6 @@ rule (modulo E) RootSetupDomains:
    [
    DomainRegister( $Party, $OI ),
    DomainRegister( $Party, <$OI, sha256(pk(~ltk))> ),
-   DNSUpdate( <$OI, sha256(pk(~ltk))>, $IP ),
    RootDomains( $Party, ~ltk, $OI, <$OI, sha256(pk(~ltk))> )
    ]
 
@@ -383,8 +363,7 @@ rule (modulo E) RootKeyLearn:
    In( tlsServerMsg(~sess, oi, tlsSk, <'root_key', rootKey>) ),
    In( <<'sct', 'cert', $CA, oi, pk(tlsSk)>, sctOiSig> ),
    In( <<'sct', 'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>, sctRootDSig>
-   ),
-   DNSEntry( <oi, sha256(rootKey)>, something )
+   )
    ]
   --[
   Eq( verify(sctOiSig, <'sct', 'cert', $CA, oi, pk(tlsSk)>, pk(skLog)),
@@ -399,7 +378,7 @@ rule (modulo E) RootKeyLearn:
              pk(skCA)),
       true
   ),
-  Neq( something, 'null' ), ObtainedRootKey( oi, rootKey ),
+  ObtainedRootKey( oi, rootKey ),
   RootCertVerified( <<'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>, 
                      certRootDSig>
   ),
@@ -407,12 +386,8 @@ rule (modulo E) RootKeyLearn:
                     <'sct', 'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>, sctRootDSig>
   )
   ]->
-   [
-   DNSEntry( <oi, sha256(rootKey)>, something ),
-   RootKeyResponse( ~sess, oi, rootKey )
-   ]
+   [ RootKeyResponse( ~sess, oi, rootKey ) ]
 
-  // loop breaker: [10]
   /*
   rule (modulo AC) RootKeyLearn:
      [
@@ -424,12 +399,11 @@ rule (modulo E) RootKeyLearn:
      In( tlsServerMsg(~sess, oi, tlsSk, <'root_key', rootKey>) ),
      In( <<'sct', 'cert', $CA, oi, pk(tlsSk)>, sctOiSig> ),
      In( <<'sct', 'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>, sctRootDSig>
-     ),
-     DNSEntry( <oi, sha256(rootKey)>, something )
+     )
      ]
     --[
     Eq( z, true ), Eq( z.1, true ), Eq( z.2, true ), Eq( z.3, true ),
-    Neq( something, 'null' ), ObtainedRootKey( oi, rootKey ),
+    ObtainedRootKey( oi, rootKey ),
     RootCertVerified( <<'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>, 
                        certRootDSig>
     ),
@@ -437,395 +411,391 @@ rule (modulo E) RootKeyLearn:
                       <'sct', 'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>, sctRootDSig>
     )
     ]->
-     [
-     DNSEntry( <oi, sha256(rootKey)>, something ),
-     RootKeyResponse( ~sess, oi, rootKey )
-     ]
+     [ RootKeyResponse( ~sess, oi, rootKey ) ]
     variants (modulo AC)
-     1. $CA   = $CA.34
+     1. $CA   = $CA.32
         certOiSig
-              = certOiSig.37
+              = certOiSig.35
         certRootDSig
-              = certRootDSig.38
-        oi    = oi.39
+              = certRootDSig.36
+        oi    = oi.37
         rootKey
-              = rootKey.40
+              = rootKey.38
         sctOiSig
-              = sctOiSig.41
+              = sctOiSig.39
         sctRootDSig
-              = sctRootDSig.42
-        skCA  = skCA.43
-        skLog = skLog.44
-        tlsSk = tlsSk.46
-        z     = verify(sctOiSig.41, <'sct', 'cert', $CA.34, oi.39, pk(tlsSk.46)>,
-                       pk(skLog.44))
-        z.1   = verify(sctRootDSig.42,
-                       <'sct', 'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)>,
-                       pk(skLog.44))
-        z.2   = verify(certOiSig.37, <'cert', $CA.34, oi.39, pk(tlsSk.46)>,
-                       pk(skCA.43))
-        z.3   = verify(certRootDSig.38,
-                       <'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)>, pk(skCA.43))
+              = sctRootDSig.40
+        skCA  = skCA.41
+        skLog = skLog.42
+        tlsSk = tlsSk.43
+        z     = verify(sctOiSig.39, <'sct', 'cert', $CA.32, oi.37, pk(tlsSk.43)>,
+                       pk(skLog.42))
+        z.1   = verify(sctRootDSig.40,
+                       <'sct', 'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)>,
+                       pk(skLog.42))
+        z.2   = verify(certOiSig.35, <'cert', $CA.32, oi.37, pk(tlsSk.43)>,
+                       pk(skCA.41))
+        z.3   = verify(certRootDSig.36,
+                       <'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)>, pk(skCA.41))
     
-     2. $CA   = $CA.34
+     2. $CA   = $CA.32
         certOiSig
-              = certOiSig.37
+              = certOiSig.35
         certRootDSig
-              = certRootDSig.38
-        oi    = oi.39
+              = certRootDSig.36
+        oi    = oi.37
         rootKey
-              = rootKey.40
+              = rootKey.38
         sctOiSig
-              = sctOiSig.41
+              = sctOiSig.39
         sctRootDSig
-              = sign(<'sct', 'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)
+              = sign(<'sct', 'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)
                      >,
-                     skLog.44)
-        skCA  = skCA.43
-        skLog = skLog.44
-        tlsSk = tlsSk.46
-        z     = verify(sctOiSig.41, <'sct', 'cert', $CA.34, oi.39, pk(tlsSk.46)>,
-                       pk(skLog.44))
+                     skLog.42)
+        skCA  = skCA.41
+        skLog = skLog.42
+        tlsSk = tlsSk.43
+        z     = verify(sctOiSig.39, <'sct', 'cert', $CA.32, oi.37, pk(tlsSk.43)>,
+                       pk(skLog.42))
         z.1   = true
-        z.2   = verify(certOiSig.37, <'cert', $CA.34, oi.39, pk(tlsSk.46)>,
-                       pk(skCA.43))
-        z.3   = verify(certRootDSig.38,
-                       <'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)>, pk(skCA.43))
+        z.2   = verify(certOiSig.35, <'cert', $CA.32, oi.37, pk(tlsSk.43)>,
+                       pk(skCA.41))
+        z.3   = verify(certRootDSig.36,
+                       <'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)>, pk(skCA.41))
     
-     3. $CA   = $CA.34
+     3. $CA   = $CA.32
         certOiSig
-              = certOiSig.37
+              = certOiSig.35
         certRootDSig
-              = certRootDSig.38
-        oi    = oi.39
+              = certRootDSig.36
+        oi    = oi.37
         rootKey
-              = rootKey.40
+              = rootKey.38
         sctOiSig
-              = sign(<'sct', 'cert', $CA.34, oi.39, pk(tlsSk.46)>, skLog.44)
+              = sign(<'sct', 'cert', $CA.32, oi.37, pk(tlsSk.43)>, skLog.42)
         sctRootDSig
-              = sctRootDSig.42
-        skCA  = skCA.43
-        skLog = skLog.44
-        tlsSk = tlsSk.46
+              = sctRootDSig.40
+        skCA  = skCA.41
+        skLog = skLog.42
+        tlsSk = tlsSk.43
         z     = true
-        z.1   = verify(sctRootDSig.42,
-                       <'sct', 'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)>,
-                       pk(skLog.44))
-        z.2   = verify(certOiSig.37, <'cert', $CA.34, oi.39, pk(tlsSk.46)>,
-                       pk(skCA.43))
-        z.3   = verify(certRootDSig.38,
-                       <'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)>, pk(skCA.43))
+        z.1   = verify(sctRootDSig.40,
+                       <'sct', 'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)>,
+                       pk(skLog.42))
+        z.2   = verify(certOiSig.35, <'cert', $CA.32, oi.37, pk(tlsSk.43)>,
+                       pk(skCA.41))
+        z.3   = verify(certRootDSig.36,
+                       <'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)>, pk(skCA.41))
     
-     4. $CA   = $CA.34
+     4. $CA   = $CA.32
         certOiSig
-              = certOiSig.37
+              = certOiSig.35
         certRootDSig
-              = certRootDSig.38
-        oi    = oi.39
+              = certRootDSig.36
+        oi    = oi.37
         rootKey
-              = rootKey.40
+              = rootKey.38
         sctOiSig
-              = sign(<'sct', 'cert', $CA.34, oi.39, pk(tlsSk.46)>, skLog.44)
+              = sign(<'sct', 'cert', $CA.32, oi.37, pk(tlsSk.43)>, skLog.42)
         sctRootDSig
-              = sign(<'sct', 'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)
+              = sign(<'sct', 'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)
                      >,
-                     skLog.44)
-        skCA  = skCA.43
-        skLog = skLog.44
-        tlsSk = tlsSk.46
-        z     = true
-        z.1   = true
-        z.2   = verify(certOiSig.37, <'cert', $CA.34, oi.39, pk(tlsSk.46)>,
-                       pk(skCA.43))
-        z.3   = verify(certRootDSig.38,
-                       <'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)>, pk(skCA.43))
-    
-     5. $CA   = $CA.34
-        certOiSig
-              = certOiSig.37
-        certRootDSig
-              = sign(<'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)>,
-                     skCA.43)
-        oi    = oi.39
-        rootKey
-              = rootKey.40
-        sctOiSig
-              = sctOiSig.41
-        sctRootDSig
-              = sctRootDSig.42
-        skCA  = skCA.43
-        skLog = skLog.44
-        tlsSk = tlsSk.46
-        z     = verify(sctOiSig.41, <'sct', 'cert', $CA.34, oi.39, pk(tlsSk.46)>,
-                       pk(skLog.44))
-        z.1   = verify(sctRootDSig.42,
-                       <'sct', 'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)>,
-                       pk(skLog.44))
-        z.2   = verify(certOiSig.37, <'cert', $CA.34, oi.39, pk(tlsSk.46)>,
-                       pk(skCA.43))
-        z.3   = true
-    
-     6. $CA   = $CA.34
-        certOiSig
-              = certOiSig.37
-        certRootDSig
-              = sign(<'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)>,
-                     skCA.43)
-        oi    = oi.39
-        rootKey
-              = rootKey.40
-        sctOiSig
-              = sctOiSig.41
-        sctRootDSig
-              = sign(<'sct', 'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)
-                     >,
-                     skLog.44)
-        skCA  = skCA.43
-        skLog = skLog.44
-        tlsSk = tlsSk.46
-        z     = verify(sctOiSig.41, <'sct', 'cert', $CA.34, oi.39, pk(tlsSk.46)>,
-                       pk(skLog.44))
-        z.1   = true
-        z.2   = verify(certOiSig.37, <'cert', $CA.34, oi.39, pk(tlsSk.46)>,
-                       pk(skCA.43))
-        z.3   = true
-    
-     7. $CA   = $CA.34
-        certOiSig
-              = certOiSig.37
-        certRootDSig
-              = sign(<'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)>,
-                     skCA.43)
-        oi    = oi.39
-        rootKey
-              = rootKey.40
-        sctOiSig
-              = sign(<'sct', 'cert', $CA.34, oi.39, pk(tlsSk.46)>, skLog.44)
-        sctRootDSig
-              = sctRootDSig.42
-        skCA  = skCA.43
-        skLog = skLog.44
-        tlsSk = tlsSk.46
-        z     = true
-        z.1   = verify(sctRootDSig.42,
-                       <'sct', 'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)>,
-                       pk(skLog.44))
-        z.2   = verify(certOiSig.37, <'cert', $CA.34, oi.39, pk(tlsSk.46)>,
-                       pk(skCA.43))
-        z.3   = true
-    
-     8. $CA   = $CA.34
-        certOiSig
-              = certOiSig.37
-        certRootDSig
-              = sign(<'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)>,
-                     skCA.43)
-        oi    = oi.39
-        rootKey
-              = rootKey.40
-        sctOiSig
-              = sign(<'sct', 'cert', $CA.34, oi.39, pk(tlsSk.46)>, skLog.44)
-        sctRootDSig
-              = sign(<'sct', 'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)
-                     >,
-                     skLog.44)
-        skCA  = skCA.43
-        skLog = skLog.44
-        tlsSk = tlsSk.46
+                     skLog.42)
+        skCA  = skCA.41
+        skLog = skLog.42
+        tlsSk = tlsSk.43
         z     = true
         z.1   = true
-        z.2   = verify(certOiSig.37, <'cert', $CA.34, oi.39, pk(tlsSk.46)>,
-                       pk(skCA.43))
+        z.2   = verify(certOiSig.35, <'cert', $CA.32, oi.37, pk(tlsSk.43)>,
+                       pk(skCA.41))
+        z.3   = verify(certRootDSig.36,
+                       <'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)>, pk(skCA.41))
+    
+     5. $CA   = $CA.32
+        certOiSig
+              = certOiSig.35
+        certRootDSig
+              = sign(<'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)>,
+                     skCA.41)
+        oi    = oi.37
+        rootKey
+              = rootKey.38
+        sctOiSig
+              = sctOiSig.39
+        sctRootDSig
+              = sctRootDSig.40
+        skCA  = skCA.41
+        skLog = skLog.42
+        tlsSk = tlsSk.43
+        z     = verify(sctOiSig.39, <'sct', 'cert', $CA.32, oi.37, pk(tlsSk.43)>,
+                       pk(skLog.42))
+        z.1   = verify(sctRootDSig.40,
+                       <'sct', 'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)>,
+                       pk(skLog.42))
+        z.2   = verify(certOiSig.35, <'cert', $CA.32, oi.37, pk(tlsSk.43)>,
+                       pk(skCA.41))
         z.3   = true
     
-     9. $CA   = $CA.34
+     6. $CA   = $CA.32
         certOiSig
-              = sign(<'cert', $CA.34, oi.39, pk(tlsSk.46)>, skCA.43)
+              = certOiSig.35
         certRootDSig
-              = certRootDSig.38
-        oi    = oi.39
+              = sign(<'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)>,
+                     skCA.41)
+        oi    = oi.37
         rootKey
-              = rootKey.40
+              = rootKey.38
         sctOiSig
-              = sctOiSig.41
+              = sctOiSig.39
         sctRootDSig
-              = sctRootDSig.42
-        skCA  = skCA.43
-        skLog = skLog.44
-        tlsSk = tlsSk.46
-        z     = verify(sctOiSig.41, <'sct', 'cert', $CA.34, oi.39, pk(tlsSk.46)>,
-                       pk(skLog.44))
-        z.1   = verify(sctRootDSig.42,
-                       <'sct', 'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)>,
-                       pk(skLog.44))
-        z.2   = true
-        z.3   = verify(certRootDSig.38,
-                       <'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)>, pk(skCA.43))
-    
-    10. $CA   = $CA.34
-        certOiSig
-              = sign(<'cert', $CA.34, oi.39, pk(tlsSk.46)>, skCA.43)
-        certRootDSig
-              = certRootDSig.38
-        oi    = oi.39
-        rootKey
-              = rootKey.40
-        sctOiSig
-              = sctOiSig.41
-        sctRootDSig
-              = sign(<'sct', 'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)
+              = sign(<'sct', 'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)
                      >,
-                     skLog.44)
-        skCA  = skCA.43
-        skLog = skLog.44
-        tlsSk = tlsSk.46
-        z     = verify(sctOiSig.41, <'sct', 'cert', $CA.34, oi.39, pk(tlsSk.46)>,
-                       pk(skLog.44))
+                     skLog.42)
+        skCA  = skCA.41
+        skLog = skLog.42
+        tlsSk = tlsSk.43
+        z     = verify(sctOiSig.39, <'sct', 'cert', $CA.32, oi.37, pk(tlsSk.43)>,
+                       pk(skLog.42))
+        z.1   = true
+        z.2   = verify(certOiSig.35, <'cert', $CA.32, oi.37, pk(tlsSk.43)>,
+                       pk(skCA.41))
+        z.3   = true
+    
+     7. $CA   = $CA.32
+        certOiSig
+              = certOiSig.35
+        certRootDSig
+              = sign(<'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)>,
+                     skCA.41)
+        oi    = oi.37
+        rootKey
+              = rootKey.38
+        sctOiSig
+              = sign(<'sct', 'cert', $CA.32, oi.37, pk(tlsSk.43)>, skLog.42)
+        sctRootDSig
+              = sctRootDSig.40
+        skCA  = skCA.41
+        skLog = skLog.42
+        tlsSk = tlsSk.43
+        z     = true
+        z.1   = verify(sctRootDSig.40,
+                       <'sct', 'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)>,
+                       pk(skLog.42))
+        z.2   = verify(certOiSig.35, <'cert', $CA.32, oi.37, pk(tlsSk.43)>,
+                       pk(skCA.41))
+        z.3   = true
+    
+     8. $CA   = $CA.32
+        certOiSig
+              = certOiSig.35
+        certRootDSig
+              = sign(<'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)>,
+                     skCA.41)
+        oi    = oi.37
+        rootKey
+              = rootKey.38
+        sctOiSig
+              = sign(<'sct', 'cert', $CA.32, oi.37, pk(tlsSk.43)>, skLog.42)
+        sctRootDSig
+              = sign(<'sct', 'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)
+                     >,
+                     skLog.42)
+        skCA  = skCA.41
+        skLog = skLog.42
+        tlsSk = tlsSk.43
+        z     = true
+        z.1   = true
+        z.2   = verify(certOiSig.35, <'cert', $CA.32, oi.37, pk(tlsSk.43)>,
+                       pk(skCA.41))
+        z.3   = true
+    
+     9. $CA   = $CA.32
+        certOiSig
+              = sign(<'cert', $CA.32, oi.37, pk(tlsSk.43)>, skCA.41)
+        certRootDSig
+              = certRootDSig.36
+        oi    = oi.37
+        rootKey
+              = rootKey.38
+        sctOiSig
+              = sctOiSig.39
+        sctRootDSig
+              = sctRootDSig.40
+        skCA  = skCA.41
+        skLog = skLog.42
+        tlsSk = tlsSk.43
+        z     = verify(sctOiSig.39, <'sct', 'cert', $CA.32, oi.37, pk(tlsSk.43)>,
+                       pk(skLog.42))
+        z.1   = verify(sctRootDSig.40,
+                       <'sct', 'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)>,
+                       pk(skLog.42))
+        z.2   = true
+        z.3   = verify(certRootDSig.36,
+                       <'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)>, pk(skCA.41))
+    
+    10. $CA   = $CA.32
+        certOiSig
+              = sign(<'cert', $CA.32, oi.37, pk(tlsSk.43)>, skCA.41)
+        certRootDSig
+              = certRootDSig.36
+        oi    = oi.37
+        rootKey
+              = rootKey.38
+        sctOiSig
+              = sctOiSig.39
+        sctRootDSig
+              = sign(<'sct', 'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)
+                     >,
+                     skLog.42)
+        skCA  = skCA.41
+        skLog = skLog.42
+        tlsSk = tlsSk.43
+        z     = verify(sctOiSig.39, <'sct', 'cert', $CA.32, oi.37, pk(tlsSk.43)>,
+                       pk(skLog.42))
         z.1   = true
         z.2   = true
-        z.3   = verify(certRootDSig.38,
-                       <'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)>, pk(skCA.43))
+        z.3   = verify(certRootDSig.36,
+                       <'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)>, pk(skCA.41))
     
-    11. $CA   = $CA.34
+    11. $CA   = $CA.32
         certOiSig
-              = sign(<'cert', $CA.34, oi.39, pk(tlsSk.46)>, skCA.43)
+              = sign(<'cert', $CA.32, oi.37, pk(tlsSk.43)>, skCA.41)
         certRootDSig
-              = certRootDSig.38
-        oi    = oi.39
+              = certRootDSig.36
+        oi    = oi.37
         rootKey
-              = rootKey.40
+              = rootKey.38
         sctOiSig
-              = sign(<'sct', 'cert', $CA.34, oi.39, pk(tlsSk.46)>, skLog.44)
+              = sign(<'sct', 'cert', $CA.32, oi.37, pk(tlsSk.43)>, skLog.42)
         sctRootDSig
-              = sctRootDSig.42
-        skCA  = skCA.43
-        skLog = skLog.44
-        tlsSk = tlsSk.46
+              = sctRootDSig.40
+        skCA  = skCA.41
+        skLog = skLog.42
+        tlsSk = tlsSk.43
         z     = true
-        z.1   = verify(sctRootDSig.42,
-                       <'sct', 'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)>,
-                       pk(skLog.44))
+        z.1   = verify(sctRootDSig.40,
+                       <'sct', 'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)>,
+                       pk(skLog.42))
         z.2   = true
-        z.3   = verify(certRootDSig.38,
-                       <'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)>, pk(skCA.43))
+        z.3   = verify(certRootDSig.36,
+                       <'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)>, pk(skCA.41))
     
-    12. $CA   = $CA.34
+    12. $CA   = $CA.32
         certOiSig
-              = sign(<'cert', $CA.34, oi.39, pk(tlsSk.46)>, skCA.43)
+              = sign(<'cert', $CA.32, oi.37, pk(tlsSk.43)>, skCA.41)
         certRootDSig
-              = certRootDSig.38
-        oi    = oi.39
+              = certRootDSig.36
+        oi    = oi.37
         rootKey
-              = rootKey.40
+              = rootKey.38
         sctOiSig
-              = sign(<'sct', 'cert', $CA.34, oi.39, pk(tlsSk.46)>, skLog.44)
+              = sign(<'sct', 'cert', $CA.32, oi.37, pk(tlsSk.43)>, skLog.42)
         sctRootDSig
-              = sign(<'sct', 'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)
+              = sign(<'sct', 'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)
                      >,
-                     skLog.44)
-        skCA  = skCA.43
-        skLog = skLog.44
-        tlsSk = tlsSk.46
-        z     = true
-        z.1   = true
-        z.2   = true
-        z.3   = verify(certRootDSig.38,
-                       <'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)>, pk(skCA.43))
-    
-    13. $CA   = $CA.34
-        certOiSig
-              = sign(<'cert', $CA.34, oi.39, pk(tlsSk.46)>, skCA.43)
-        certRootDSig
-              = sign(<'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)>,
-                     skCA.43)
-        oi    = oi.39
-        rootKey
-              = rootKey.40
-        sctOiSig
-              = sctOiSig.41
-        sctRootDSig
-              = sctRootDSig.42
-        skCA  = skCA.43
-        skLog = skLog.44
-        tlsSk = tlsSk.46
-        z     = verify(sctOiSig.41, <'sct', 'cert', $CA.34, oi.39, pk(tlsSk.46)>,
-                       pk(skLog.44))
-        z.1   = verify(sctRootDSig.42,
-                       <'sct', 'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)>,
-                       pk(skLog.44))
-        z.2   = true
-        z.3   = true
-    
-    14. $CA   = $CA.34
-        certOiSig
-              = sign(<'cert', $CA.34, oi.39, pk(tlsSk.46)>, skCA.43)
-        certRootDSig
-              = sign(<'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)>,
-                     skCA.43)
-        oi    = oi.39
-        rootKey
-              = rootKey.40
-        sctOiSig
-              = sctOiSig.41
-        sctRootDSig
-              = sign(<'sct', 'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)
-                     >,
-                     skLog.44)
-        skCA  = skCA.43
-        skLog = skLog.44
-        tlsSk = tlsSk.46
-        z     = verify(sctOiSig.41, <'sct', 'cert', $CA.34, oi.39, pk(tlsSk.46)>,
-                       pk(skLog.44))
-        z.1   = true
-        z.2   = true
-        z.3   = true
-    
-    15. $CA   = $CA.34
-        certOiSig
-              = sign(<'cert', $CA.34, oi.39, pk(tlsSk.46)>, skCA.43)
-        certRootDSig
-              = sign(<'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)>,
-                     skCA.43)
-        oi    = oi.39
-        rootKey
-              = rootKey.40
-        sctOiSig
-              = sign(<'sct', 'cert', $CA.34, oi.39, pk(tlsSk.46)>, skLog.44)
-        sctRootDSig
-              = sctRootDSig.42
-        skCA  = skCA.43
-        skLog = skLog.44
-        tlsSk = tlsSk.46
-        z     = true
-        z.1   = verify(sctRootDSig.42,
-                       <'sct', 'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)>,
-                       pk(skLog.44))
-        z.2   = true
-        z.3   = true
-    
-    16. $CA   = $CA.34
-        certOiSig
-              = sign(<'cert', $CA.34, oi.39, pk(tlsSk.46)>, skCA.43)
-        certRootDSig
-              = sign(<'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)>,
-                     skCA.43)
-        oi    = oi.39
-        rootKey
-              = rootKey.40
-        sctOiSig
-              = sign(<'sct', 'cert', $CA.34, oi.39, pk(tlsSk.46)>, skLog.44)
-        sctRootDSig
-              = sign(<'sct', 'cert', $CA.34, <oi.39, sha256(rootKey.40)>, pk(tlsSk.46)
-                     >,
-                     skLog.44)
-        skCA  = skCA.43
-        skLog = skLog.44
-        tlsSk = tlsSk.46
+                     skLog.42)
+        skCA  = skCA.41
+        skLog = skLog.42
+        tlsSk = tlsSk.43
         z     = true
         z.1   = true
         z.2   = true
+        z.3   = verify(certRootDSig.36,
+                       <'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)>, pk(skCA.41))
+    
+    13. $CA   = $CA.32
+        certOiSig
+              = sign(<'cert', $CA.32, oi.37, pk(tlsSk.43)>, skCA.41)
+        certRootDSig
+              = sign(<'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)>,
+                     skCA.41)
+        oi    = oi.37
+        rootKey
+              = rootKey.38
+        sctOiSig
+              = sctOiSig.39
+        sctRootDSig
+              = sctRootDSig.40
+        skCA  = skCA.41
+        skLog = skLog.42
+        tlsSk = tlsSk.43
+        z     = verify(sctOiSig.39, <'sct', 'cert', $CA.32, oi.37, pk(tlsSk.43)>,
+                       pk(skLog.42))
+        z.1   = verify(sctRootDSig.40,
+                       <'sct', 'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)>,
+                       pk(skLog.42))
+        z.2   = true
         z.3   = true
-    // loop breaker: [10]
+    
+    14. $CA   = $CA.32
+        certOiSig
+              = sign(<'cert', $CA.32, oi.37, pk(tlsSk.43)>, skCA.41)
+        certRootDSig
+              = sign(<'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)>,
+                     skCA.41)
+        oi    = oi.37
+        rootKey
+              = rootKey.38
+        sctOiSig
+              = sctOiSig.39
+        sctRootDSig
+              = sign(<'sct', 'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)
+                     >,
+                     skLog.42)
+        skCA  = skCA.41
+        skLog = skLog.42
+        tlsSk = tlsSk.43
+        z     = verify(sctOiSig.39, <'sct', 'cert', $CA.32, oi.37, pk(tlsSk.43)>,
+                       pk(skLog.42))
+        z.1   = true
+        z.2   = true
+        z.3   = true
+    
+    15. $CA   = $CA.32
+        certOiSig
+              = sign(<'cert', $CA.32, oi.37, pk(tlsSk.43)>, skCA.41)
+        certRootDSig
+              = sign(<'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)>,
+                     skCA.41)
+        oi    = oi.37
+        rootKey
+              = rootKey.38
+        sctOiSig
+              = sign(<'sct', 'cert', $CA.32, oi.37, pk(tlsSk.43)>, skLog.42)
+        sctRootDSig
+              = sctRootDSig.40
+        skCA  = skCA.41
+        skLog = skLog.42
+        tlsSk = tlsSk.43
+        z     = true
+        z.1   = verify(sctRootDSig.40,
+                       <'sct', 'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)>,
+                       pk(skLog.42))
+        z.2   = true
+        z.3   = true
+    
+    16. $CA   = $CA.32
+        certOiSig
+              = sign(<'cert', $CA.32, oi.37, pk(tlsSk.43)>, skCA.41)
+        certRootDSig
+              = sign(<'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)>,
+                     skCA.41)
+        oi    = oi.37
+        rootKey
+              = rootKey.38
+        sctOiSig
+              = sign(<'sct', 'cert', $CA.32, oi.37, pk(tlsSk.43)>, skLog.42)
+        sctRootDSig
+              = sign(<'sct', 'cert', $CA.32, <oi.37, sha256(rootKey.38)>, pk(tlsSk.43)
+                     >,
+                     skLog.42)
+        skCA  = skCA.41
+        skLog = skLog.42
+        tlsSk = tlsSk.43
+        z     = true
+        z.1   = true
+        z.2   = true
+        z.3   = true
   */
 
 lemma CanObtainRootKey:
