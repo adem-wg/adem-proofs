@@ -20,3 +20,8 @@ After having started Tamarin in interactive mode, you can navigate to `localhost
 
 The `*-run.spthy` scripts provided within this repository are targeted towards a particular development environment, yet, you still may find them useful.
 If a script does not work for you, you may need to replace `tamarin-prover-release` with `tamarin-prover` in the scripts.
+
+## Acknowledgements
+
+Work on this project was funded by the Werner Siemens-Stiftung (WSS).
+We thank the WSS for their generous support.
