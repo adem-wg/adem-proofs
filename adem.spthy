@@ -139,22 +139,6 @@ rule RootSetupCertificates:
     , Eq(verify(sigRootCert, bodyRootCert, pk(skCA)), true) ]->
   [ !RootSetup($P, ~rootKey, oi, rootD) ]
 
-rule RootKeyQuery:
-  [ RootKeyQuery(~sess, oi, tlsPk) ]
-  -->
-  [ Out(tlsClientMsg(~sess, oi, tlsPk, 'root_key_q'))
-  , St_RootKeyQueried(~sess, oi, tlsPk) ]
-
-rule RootKeyTell:
-  let bodyOiCert = <'cert', $CA, oi, pk(skTLS)>
-  in
-  [ !RootSetup($P, ~rootKey, oi, rootD), !CA($CA, skCA)
-  , !TLSKey($P, $CA, oi, skTLS)
-  , In(<bodyOiCert, sigOiCert>)
-  , In(tlsClientMsg(~sess, oi, pk(skTLS), 'root_key_q')) ]
-  --[ Eq(verify(sigOiCert, bodyOiCert, pk(skCA)), true) ]->
-  [ Out(tlsServerMsg(~sess, oi, skTLS, <'root_key', pk(~rootKey)>)) ]
-
 rule RootKeyLearn:
   let certOi = <'cert', $CA, oi, pk(tlsSk)>
       certRootD = <'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>
@@ -162,10 +146,8 @@ rule RootKeyLearn:
       sctRootD = <'sct', certRootD>
   in
   [ !CA($CA, skCA), !Log($Log, skLog)
-  , St_RootKeyQueried(~sess, oi, pk(tlsSk))
   , !MHTLeaf($Log, certOi), !MHTLeaf($Log, certRootD)
   , !StoredSig($Log, certOiSig), !StoredSig($Log, certRootDSig)
-  , In(tlsServerMsg(~sess, oi, tlsSk, <'root_key', rootKey>))
   , In(<sctOi, sctOiSig>), In(<sctRootD, sctRootDSig>) ]
   --[ Eq(verify(sctOiSig, sctOi, pk(skLog)), true)
     , Eq(verify(sctRootDSig, sctRootD, pk(skLog)), true)
@@ -174,7 +156,7 @@ rule RootKeyLearn:
     , ObtainedRootKey(oi, rootKey)
     , RootCertVerified(<certRootD, certRootDSig>)
     , RootSCTVerified(<sctRootD, sctRootDSig>) ]->
-  [ RootKeyResponse(~sess, oi, rootKey) ]
+  [ RootKeyVerified(oi, rootKey) ]
 
 lemma CanObtainRootKey:
   exists-trace
@@ -226,14 +208,13 @@ rule ReceiveEmblem:
   --[ VerifiedEndorsed(~id, oi, $E, epk)
     , Eq(verify(emblemSignature, emblemBody, epk), true)
     , Eq(verify(certSignature, certBody, pk(~skCA)), true) ]->
-  [ RootKeyQuery(~sess, oi, tlsPk)
-  , VerifyEndorsements(~id, ~sess, oi, $E, epk) ]
+  [ VerifyEndorsements(~id, oi, $E, epk) ]
 
 rule ReceiveInternalEndorsement:
   let body = <'end_int', oi, epk>
   in
-  [ VerifyEndorsements(~id, ~sess, oi, $E, epk)
-  , RootKeyResponse(~sess, oi, rootKey)
+  [ VerifyEndorsements(~id, oi, $E, epk)
+  , RootKeyVerified(oi, rootKey)
   , In(<rootKey, body, signature>) ]
   --[ VerifiedRootEndorsement(~id, oi, rootKey)
     , UsedRootKey(oi, rootKey)
@@ -258,12 +239,11 @@ rule ReceiveAuthorityEndorsement:
   --[ Neq(auth, oi)
     , Eq(verify(endSignature, endBody, authPk), true)
     , Eq(verify(certSignature, certBody, pk(skCA)), true) ]->
-  [ RootKeyQuery(~sess, auth, tlsKey)
-  , VerifyAuthoritySetup(~id, ~sess, auth, authPk, oi, rootKey, $E) ]
+  [ VerifyAuthoritySetup(~id, auth, authPk, oi, rootKey, $E) ]
 
 rule AuthoritySetupVerified:
-  [ VerifyAuthoritySetup(~id, ~sess, auth, authPk, oi, rootKey, $E)
-  , RootKeyResponse(~sess, auth, authPk) ]
+  [ VerifyAuthoritySetup(~id, auth, authPk, oi, rootKey, $E)
+  , RootKeyVerified(auth, authPk) ]
   --[ VerifiedAuthorityEndorsement(~id, auth, authPk, oi, rootKey)
     , UsedRootKey(auth, authPk) ]->
   [ VerifyAuthorityEndorsements(~id, oi, rootKey, $E) ]
