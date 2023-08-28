@@ -314,16 +314,16 @@ predicates:
         & LogInclusion(log, <<'cert', ca, <oi, sha256(rootPk)>, pk>, sign(<'cert', ca, <oi, sha256(rootPk)>, pk>, skCA)>) @ #t2
 
 lemma AccountabilityCompleteness:
-  "All id oi asset assetKey rootKey authPk authOi endorsedKey #t1 #t2 #t3.
+  "All id oi asset assetKey rootKey #t1 #t2.
         ( VerifiedEndorsed(id, oi, asset, assetKey) @ #t1
         & VerifiedRootEndorsement(id, oi, rootKey) @ #t2
-        & VerifiedAuthorityEndorsement(id, authPk, authOi, oi, endorsedKey) @ #t3
         & (not Ex pp #x #y. OI(pp, oi) @ #x & IsAsset(pp, asset, assetKey) @ #y)
         & (not Ex otherA #x. CompromisedAssetKey(otherA, assetKey) @ #x))
     ==> ( (Ex p #x #y. OI(p, oi) @ #x & CompromisedADEMParty(p, rootKey) @ #y & ExBindingCert(oi, rootKey))
-        | (Ex p #x #y. OI(p, authOi) @ #x & CompromisedADEMParty(p, authPk) @ #y & ExBindingCert(authOi, authPk))
         | (Ex ca #x. CompromisedCA(ca) @ #x & ExBindingCertCA(ca, oi, rootKey))
-        | (Ex ca #x. CompromisedCA(ca) @ #x & ExBindingCertCA(ca, authOi, authPk)))"
+        | ( (Ex authPk authOi endorsedKey #x1. VerifiedAuthorityEndorsement(id, authPk, authOi, oi, endorsedKey) @ #x1))
+        & ( (Ex p #x #y. OI(p, authOi) @ #x & CompromisedADEMParty(p, authPk) @ #y & ExBindingCert(authOi, authPk))
+            | (Ex ca #x. CompromisedCA(ca) @ #x & ExBindingCertCA(ca, authOi, authPk))))"
 
 restriction Eq:
     "All a b #i. Eq(a, b) @ #i ==> a = b"
