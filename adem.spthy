@@ -27,37 +27,25 @@ rule DomainCompromise:
 
 // Certificate Transparency
 rule LogRegister:
-  [ Fr(~skLog) ]
-  --[ LogSk($Log, ~skLog) ]->
-  [ !Log($Log, ~skLog), Out(pk(~skLog)) ]
-
-rule LogCompromise:
-  [ !Log($Log, ~skLog) ]
-  --[ CompromisedParty($Log) ]->
-  [ !LogCompromised($Log), Out(~skLog) ]
+  []
+  --[ IsLog($Log) ]->
+  [ !Log($Log) ]
 
 rule Submit:
-  let sctBody = <'sct', certBody>
+  let certBody = <'cert', $CA, d, pk>
   in
-  [ !CA($CA, skCA), !Log($Log, skLog)
+  [ !CA($CA, skCA), !Log($Log)
   , In(<certBody, certSig>) ]
   --[ Eq(verify(certSig, certBody, pk(skCA)), true)
     , Eq(fst(snd(certBody)), $CA)
-    , LogInclusion($Log, certBody)
-    , SignatureStore($Log, certSig) ]->
-  [ Out(<sctBody, sign(sctBody, skLog)>)
-  , !StoredSig($Log, certSig)
-  , !MHTLeaf($Log, certBody) ]
+    , LogInclusion($Log, <certBody, certSig>) ]->
+  [ !MHTLeaf($Log, <certBody, certSig>) ]
 
 rule AdversarialAppend:
-  [ !LogCompromised($Log), In(msg) ]
-  --[ LogInclusion($Log, msg) ]->
+  [ In(msg) ]
+  --[ LogInclusion($Log, msg)
+    , CompromisedParty($Log) ]->
   [ !MHTLeaf($Log, msg) ]
-
-rule AdversarialStoreSig:
-  [ !LogCompromised($Log), In(msg) ]
-  --[ SignatureStore($Log, msg) ]->
-  [ !StoredSig($Log, msg) ]
 
 // Certificate authorities
 rule CA:
@@ -69,6 +57,7 @@ rule CA:
 rule FraudulentCertificate:
   [ !CA($CA, ~skCA), In(m) ]
   --[ SigningOracleCA($CA, m)
+    , CompromisedCA($CA)
     , CompromisedParty($CA) ]->
   [ Out(<m, sign(m, ~skCA)>) ]
 
@@ -106,25 +95,35 @@ equations:
 
 // ADEM Root Keys
 rule Ltk:
-  [ Fr(~ltk) ]
+  [ Fr(~rootKey) ]
   -->
-  [ !Ltk($A, ~ltk), Out(pk(~ltk)) ]
+  [ !Ltk($A, ~rootKey), Out(pk(~rootKey)) ]
+
+rule AssetKey:
+  [ Fr(~assetKey) ]
+  -->
+  [ !LtkAsset($A, ~assetKey), Out(pk(~assetKey)) ]
 
 rule Reveal:
-  [ !Ltk($A, ltk) ]
-  --[ CompromisedADEMKey($A, ltk)
+  [ !Ltk($A, ~ltk) ]
+  --[ CompromisedADEMParty($A, pk(~ltk))
     , CompromisedParty($A) ]->
-  [ Out(ltk) ]
+  [ Out(~ltk) ]
+
+rule RevealAsset:
+  [ !LtkAsset($A, ~ltk) ]
+  --[ CompromisedAssetKey($A, pk(~ltk)) ]->
+  [ Out(~ltk) ]
 
 functions: sha256/1
 rule RootSetupDomains:
-  let rootD = <$OI, sha256(pk(~ltk))>
+  let rootD = <$OI, sha256(pk(~rootKey))>
   in
-  [ !Ltk($Party, ~ltk) ]
+  [ !Ltk($Party, ~rootKey) ]
   --[ OnlyOnce(<'root', $Party>)
     , OI($Party, $OI) ]->
   [ DomainRegister($Party, $OI), DomainRegister($Party, rootD)
-  , RootDomains($Party, ~ltk, $OI, rootD) ]
+  , RootDomains($Party, ~rootKey, $OI, rootD) ]
 
 rule RootSetupCertificates:
   let bodyOiCert = <'cert', $CA, oi, pk(tlsSk)>
@@ -132,6 +131,7 @@ rule RootSetupCertificates:
   in
   [ !CA($CA, skCA), RootDomains($P, ~rootKey, oi, rootD)
   , !TLSKey($P, $CA, oi, tlsSk), !TLSKey($P, $CA, rootD, tlsSk)
+  , !MHTLeaf($Log, <bodyOiCert, sigOiCert>), !MHTLeaf($Log, <bodyRootCert, sigRootCert>)
   , In(<bodyOiCert, sigOiCert>)
   , In(<bodyRootCert, sigRootCert>) ]
   --[ IsRootPK($P, oi, pk(~rootKey))
@@ -142,32 +142,27 @@ rule RootSetupCertificates:
 rule RootKeyLearn:
   let certOi = <'cert', $CA, oi, pk(tlsSk)>
       certRootD = <'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>
-      sctOi = <'sct', certOi>
-      sctRootD = <'sct', certRootD>
   in
-  [ !CA($CA, skCA), !Log($Log, skLog)
-  , !MHTLeaf($Log, certOi), !MHTLeaf($Log, certRootD)
-  , !StoredSig($Log, certOiSig), !StoredSig($Log, certRootDSig)
-  , In(<sctOi, sctOiSig>), In(<sctRootD, sctRootDSig>) ]
-  --[ Eq(verify(sctOiSig, sctOi, pk(skLog)), true)
-    , Eq(verify(sctRootDSig, sctRootD, pk(skLog)), true)
-    , Eq(verify(certOiSig, certOi, pk(skCA)), true)
+  [ !CA($CA, skCA), !Log($Log)
+  , !MHTLeaf($Log, <certOi, certOiSig>), !MHTLeaf($Log, <certRootD, certRootDSig>) ]
+  --[ Eq(verify(certOiSig, certOi, pk(skCA)), true)
     , Eq(verify(certRootDSig, certRootD, pk(skCA)), true)
-    , ObtainedRootKey(oi, rootKey)
+    , VerifiedRootKey(oi, rootKey)
     , RootCertVerified(<certRootD, certRootDSig>)
-    , RootSCTVerified(<sctRootD, sctRootDSig>) ]->
+    , LogInclusionVerified($Log, certOi)
+    , LogInclusionVerified($Log, certRootD) ]->
   [ RootKeyVerified(oi, rootKey) ]
 
 lemma CanObtainRootKey:
   exists-trace
-  " (Ex oi rootKey #t. ObtainedRootKey(oi, rootKey) @ #t)
+  " (Ex oi rootKey #t. VerifiedRootKey(oi, rootKey) @ #t)
   & (not Ex p #x. CompromisedParty(p) @ #x)
   & (not Ex sk #x. CompromisedTLSKey(sk) @ #x)
   & (not Ex ca m #x. SigningOracleCA(ca, m) @ #x)"
 
 // ADEM endorsements and emblem distribution
 rule Asset:
-  [ !Ltk($E, assetKey), !RootSetup($P, rootKey, oi, rootD) ]
+  [ !LtkAsset($E, assetKey), !RootSetup($P, rootKey, oi, rootD) ]
   --[ IsAsset($P, $E, pk(assetKey))
     , OnlyOnce(<'asset', $E>) ]->
   [ !AssetOf($P, $E, assetKey) ]
@@ -200,24 +195,17 @@ rule SendEmblem:
 
 rule ReceiveEmblem:
   let emblemBody = <'emblem', $E, oi>
+      body = <'end_int', oi, epk>
       certBody = <'cert', $CA, oi, tlsPk>
   in
-  [ !CA($CA, ~skCA), Fr(~id), Fr(~sess)
-  , In(<certBody, certSignature>)
-  , In(<epk, emblemBody, emblemSignature>) ]
-  --[ VerifiedEndorsed(~id, oi, $E, epk)
-    , Eq(verify(emblemSignature, emblemBody, epk), true)
-    , Eq(verify(certSignature, certBody, pk(~skCA)), true) ]->
-  [ VerifyEndorsements(~id, oi, $E, epk) ]
-
-rule ReceiveInternalEndorsement:
-  let body = <'end_int', oi, epk>
-  in
-  [ VerifyEndorsements(~id, oi, $E, epk)
+  [ Fr(~id)
+  , In(<epk, emblemBody, emblemSignature>)
+  , In(<rootKey, body, signature>)
   , RootKeyVerified(oi, rootKey)
-  , In(<rootKey, body, signature>) ]
-  --[ VerifiedRootEndorsement(~id, oi, rootKey)
-    , UsedRootKey(oi, rootKey)
+  ]
+  --[ VerifiedEndorsed(~id, oi, $E, epk)
+    , VerifiedRootEndorsement(~id, oi, rootKey)
+    , Eq(verify(emblemSignature, emblemBody, epk), true)
     , Eq(verify(signature, body, rootKey), true) ]->
   [ VerifyAuthorityEndorsements(~id, oi, rootKey, $E) ]
 
@@ -232,20 +220,12 @@ rule ReceiveAuthorityEndorsement:
       certBody = <'cert', $CA, auth, tlsKey>
   in
   [ VerifyAuthorityEndorsements(~id, oi, rootKey, $E)
-  , !CA($CA, skCA)
   , Fr(~sess)
-  , In(<certBody, certSignature>)
-  , In(<authPk, endBody, endSignature>) ]
+  , In(<authPk, endBody, endSignature>)
+  , RootKeyVerified(auth, authPk) ]
   --[ Neq(auth, oi)
     , Eq(verify(endSignature, endBody, authPk), true)
-    , Eq(verify(certSignature, certBody, pk(skCA)), true) ]->
-  [ VerifyAuthoritySetup(~id, auth, authPk, oi, rootKey, $E) ]
-
-rule AuthoritySetupVerified:
-  [ VerifyAuthoritySetup(~id, auth, authPk, oi, rootKey, $E)
-  , RootKeyVerified(auth, authPk) ]
-  --[ VerifiedAuthorityEndorsement(~id, auth, authPk, oi, rootKey)
-    , UsedRootKey(auth, authPk) ]->
+    , VerifiedAuthorityEndorsement(~id, auth, authPk, oi, rootKey) ]->
   [ VerifyAuthorityEndorsements(~id, oi, rootKey, $E) ]
 
 lemma CanReceiveEmblem:
@@ -271,51 +251,32 @@ lemma AuthenticEmblem:
   "All id oi asset assetKey rootKey #t1 #t2.
         ( VerifiedEndorsed(id, oi, asset, assetKey) @ #t1
         & VerifiedRootEndorsement(id, oi, rootKey) @ #t2)
-    ==> ( (Ex pp #x. IsAsset(pp, asset, assetKey) @ #x)
-        | (Ex p k #x #y. OI(p, oi) @ #x & CompromisedADEMKey(p, k) @ #y)
-        | (Ex otherE k #x. CompromisedADEMKey(otherE, k) @ #x)
+    ==> ( (Ex pp #x #y. OI(pp, oi) @ #x & IsAsset(pp, asset, assetKey) @ #y)
+        | (Ex p #x #y. OI(p, oi) @ #x & CompromisedADEMParty(p, rootKey) @ #y)
+        | (Ex otherA #x. CompromisedAssetKey(otherA, assetKey) @ #x)
         | (not Ex authOi authPk endorsedKey #t3. VerifiedAuthorityEndorsement(id, authPk, authOi, oi, endorsedKey) @ #t3)
         | (All authOI authPk endorsedKey #x. VerifiedAuthorityEndorsement(id, authOI, authPk, oi, endorsedKey) @ #x
-            ==> ( (Ex p k #y #z. OI(p, authOI) @ #y & CompromisedADEMKey(p, k) @ #z)
+            ==> ( (Ex p #y #z. OI(p, authOI) @ #y & CompromisedADEMParty(p, authPk) @ #z)
                 | (not Ex p #y. IsRootPK(p, authOI, authPk) @ #y))))"
 
 rule MonitorLogs:
   let cert = <'cert', $SigningCA, d, pkTLS>
   in
-  [ !MHTLeaf($Log, cert), !TLSKey($P, $CA, d, skTLS) ]
+  [ !MHTLeaf($Log, <cert, sig>), !TLSKey($P, $CA, d, skTLS) ]
   --[ Neq(pk(skTLS), pkTLS)
     , Dispute($P, $Log, $SigningCA, d, pkTLS) ]->
   []
 
-lemma MonitoringImpliesInclusion[reuse]:
-  "All p l ca d pk #t. Dispute(p, l, ca, d, pk) @ #t
-    ==> (Ex #x. LogInclusion(l, <'cert', ca, d, pk>) @ #x)"
+lemma CanDisupte:
+  exists-trace
+  "Ex p log ca d pk #t. Dispute(p, log, ca, d, pk) @ #t"
 
 lemma CAAccountability:
   "All p log ca d pk skCA #x #y #z.
         ( Dispute(p, log, ca, d, pk) @ #x
         & CASk(ca, skCA) @ #y
-        & SignatureStore(log, sign(<'cert', ca, d, pk>, skCA)) @ #z)
+        & LogInclusion(log, <<'cert', ca, d, pk>, sign(<'cert', ca, d, pk>, skCA)>) @ #z)
     ==> (Ex #a. CompromisedParty(ca) @ #a)"
-
-lemma LogAccountability:
-  "All p oi rk_true rk_false ca caSk log logSk certBody tlsPk
-    certSig sctBody sctSig #t1 #t3 #t4 #t5 #t6.
-        ( IsRootPK(p, oi, rk_true) @ #t1
-        & ( (Ex id oiPP rkPP #x. VerifiedAuthorityEndorsement(id, oi, rk_false, oiPP, rkPP) @ #x)
-          | (Ex id #x. VerifiedRootEndorsement(id, oi, rk_false) @ #x))
-        & not (rk_true = rk_false)
-        & CASk(ca, caSk) @ #t3
-        & LogSk(log, logSk) @ #t4
-        & certBody = <'cert', ca, <oi, sha256(rk_false)>, tlsPk>
-        & certSig = sign(certBody, caSk)
-        & RootCertVerified(<certBody, certSig>) @ #t5
-        & sctBody = <'sct', certBody>
-        & sctSig = sign(sctBody, logSk)
-        & RootSCTVerified(<sctBody, sctSig>) @ #t6
-        & ( (not Ex #a. LogInclusion(log, certBody) @ #a)
-          | (not Ex #a. SignatureStore(log, certSig) @ #a)))
-    ==> (Ex #a. CompromisedParty(log) @ #a)"
 
 lemma AuthorityAccountability:
   "All p pAuth oi rk_true rk_false id oiAuth rkAuth #t1 #t2 #t3.
@@ -336,14 +297,33 @@ lemma PPAccountability:
         & (not Ex e2 #x. IsAsset(p, e2, assetKey) @ #x))
     ==> (Ex #a. CompromisedParty(p) @ #a)"
 
-lemma RootKeyUse:
-  "All oi rk #t.
-        UsedRootKey(oi, rk) @ #t
-    ==> (Ex log logSk sctBody sctSig ca tlsPk #x #y.
-          ( LogSk(log, logSk) @ #x
-          & sctBody = <'sct', <'cert', ca, <oi, sha256(rk)>, tlsPk>>
-          & sctSig = sign(sctBody, logSk)
-          & RootSCTVerified(<sctBody, sctSig>) @ #y))"
+predicates:
+      ExBindingCert(oi, rootPk)
+  <=> Ex ca log pk sig1 sig2 #t1 #t2.
+          LogInclusion(log, <<'cert', ca, oi, pk>, sig1>) @ #t1
+        & LogInclusion(log, <<'cert', ca, <oi, sha256(rootPk)>, pk>, sig2>) @ #t2,
+      ExBindingCertCA(ca, oi, rootPk)
+  <=> Ex ca log pk sig1 sig2 #t1 #t2.
+          LogInclusion(log, <<'cert', ca, oi, pk>, sig1>) @ #t1
+        & LogInclusion(log, <<'cert', ca, <oi, sha256(rootPk)>, pk>, sig2>) @ #t2
+
+predicates:
+      ExFraudLogged(oi, rootPk, ca, skCA)
+  <=> Ex log pk #t1 #t2.
+          LogInclusion(log, <<'cert', ca, oi, pk>, sign(<'cert', ca, oi, pk>, skCA)>) @ #t1
+        & LogInclusion(log, <<'cert', ca, <oi, sha256(rootPk)>, pk>, sign(<'cert', ca, <oi, sha256(rootPk)>, pk>, skCA)>) @ #t2
+
+lemma AccountabilityCompleteness:
+  "All id oi asset assetKey rootKey authPk authOi endorsedKey #t1 #t2 #t3.
+        ( VerifiedEndorsed(id, oi, asset, assetKey) @ #t1
+        & VerifiedRootEndorsement(id, oi, rootKey) @ #t2
+        & VerifiedAuthorityEndorsement(id, authPk, authOi, oi, endorsedKey) @ #t3
+        & (not Ex pp #x #y. OI(pp, oi) @ #x & IsAsset(pp, asset, assetKey) @ #y)
+        & (not Ex otherA #x. CompromisedAssetKey(otherA, assetKey) @ #x))
+    ==> ( (Ex p #x #y. OI(p, oi) @ #x & CompromisedADEMParty(p, rootKey) @ #y & ExBindingCert(oi, rootKey))
+        | (Ex p #x #y. OI(p, authOi) @ #x & CompromisedADEMParty(p, authPk) @ #y & ExBindingCert(authOi, authPk))
+        | (Ex ca #x. CompromisedCA(ca) @ #x & ExBindingCertCA(ca, oi, rootKey))
+        | (Ex ca #x. CompromisedCA(ca) @ #x & ExBindingCertCA(ca, authOi, authPk)))"
 
 restriction Eq:
     "All a b #i. Eq(a, b) @ #i ==> a = b"

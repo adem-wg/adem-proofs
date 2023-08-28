@@ -48,9 +48,9 @@ elif argv[1] == 'VerifiedAuthorityOrigin':
   ], lines)
 elif argv[1] == 'AuthenticEmblem':
   match = matchAgainstList([
-    re.compile(r'!TLSKey\(.+, ~(ltk|rootKey)'),
+    re.compile(r'!TLSKey\(.+, ~(assetKey|rootKey)'),
     '!KU( ~rootKey',
-    '!KU( ~ltk',
+    '!KU( ~assetKey',
     'RootDomains',
     'VerifyEndorsements',
     '!KU( sign(<\'emblem\'',
@@ -66,17 +66,6 @@ elif argv[1] == 'CAAccountability':
     '!KU( sign(',
     'SignatureStore',
     '!TLSKey',
-  ], lines)
-elif argv[1] == 'LogAccountability':
-  match = matchAgainstList([
-    re.compile(r'!TLSKey\(.+, ~(ltk|rootKey|skLog|skCA)'),
-    re.compile('!KU\( ~(ltk|rootKey|skLog|skCA)'),
-    'DomainOwner',
-    'RootDomains',
-    re.compile('^[\(\s]*∀'),
-    re.compile(r'!KU\( sign\(<\'sct\',.+sha256\(rk_false\)'),
-    re.compile(r'!KU\( sign\(<\'cert\',.+sha256\(rk_false\)'),
-    '!TLSKey( $P',
   ], lines)
 elif argv[1] == 'AuthorityAccountability':
   match = matchAgainstList([
@@ -108,6 +97,15 @@ elif argv[1] == 'CertBindingIsImpliedPP':
     'RootDomains',
     'VerifyEndorsements',
     'RootKeyResponse',
+  ], lines)
+elif argv[1] == 'AccountabilityCompleteness':
+  match = matchAgainstList([
+    re.compile(r'!TLSKey\(.+, ~(assetKey|rootKey|skLog|skCA)'),
+    re.compile('!KU\( ~(assetKey|rootKey|skLog|skCA)'),
+    '!KU( sign(<\'emblem\'',
+    '!KU( sign(<\'end_int\'',
+    'RootKeyVerified( oi, pk(x.1)',
+    '!KU( sign(<\'cert\', $CA, <oi, sha256(pk(x.1))>, pk(tlsSk)>, ~skCA)',
   ], lines)
 
 if match is not None:
