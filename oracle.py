@@ -28,6 +28,7 @@ def matchAgainstList(priorityList, lines):
 match = None
 if argv[1] in ['CanObtainRootKey', 'CanReceiveEmblem']:
   match = matchAgainstList([
+    'VerifyAuthorityEndorsements',
     '!CA',
     '!Log',
     '!TLSKey',
@@ -48,6 +49,7 @@ elif argv[1] == 'VerifiedAuthorityOrigin':
   ], lines)
 elif argv[1] == 'AuthenticEmblem':
   match = matchAgainstList([
+    re.compile(r'!Ltk\( .*, ~'),
     re.compile(r'!TLSKey\(.+, ~(assetKey|rootKey)'),
     '!KU( ~rootKey',
     '!KU( ~assetKey',
@@ -65,25 +67,19 @@ elif argv[1] == 'CAAccountability':
     '!KU( ~skCA',
     '!KU( sign(',
     'SignatureStore',
+    'LogInclusion',
     '!TLSKey',
   ], lines)
 elif argv[1] == 'AuthorityAccountability':
   match = matchAgainstList([
-    re.compile(r'!TLSKey\(.+, ~rootKey'),
-    '!KU( ~rootKey',
-    'RootDomains',
-    re.compile(r'!TLSKey\(.+,\s*\$OI,'),
     '!KU( sign(<\'end_ext\'',
-    'VerifyAuthoritySetup',
+    re.compile(r'!Ltk\( .+, ~'),
+    '!KU( ~rootKey',
   ], lines)
 elif argv[1] == 'PPAccountability':
-    match = matchAgainstList([
-    re.compile(r'!TLSKey\(.+, ~rootKey'),
-    '!KU( ~rootKey',
-    'RootDomains',
-    'VerifyEndorsements',
-    re.compile(r'!TLSKey\(.+,\s*\$OI,'),
+  match = matchAgainstList([
     '!KU( sign(<\'end_int\'',
+    '!KU( ~rootKey',
   ], lines)
 elif argv[1] == 'RootKeyUse':
   match = matchAgainstList(['RootKeyResponse'], lines)
@@ -98,14 +94,10 @@ elif argv[1] == 'CertBindingIsImpliedPP':
     'VerifyEndorsements',
     'RootKeyResponse',
   ], lines)
-elif argv[1] == 'AccountabilityCompleteness':
+elif argv[1] == 'RootKeyUse':
   match = matchAgainstList([
-    re.compile(r'!TLSKey\(.+, ~(assetKey|rootKey|skLog|skCA)'),
-    re.compile('!KU\( ~(assetKey|rootKey|skLog|skCA)'),
-    '!KU( sign(<\'emblem\'',
-    '!KU( sign(<\'end_int\'',
-    'RootKeyVerified( oi, pk(x.1)',
-    '!KU( sign(<\'cert\', $CA, <oi, sha256(pk(x.1))>, pk(tlsSk)>, ~skCA)',
+    'UsedRootKey',
+    'RootKeyVerified',
   ], lines)
 
 if match is not None:
