@@ -21,9 +21,10 @@ rule SubdomainRegister:
   [ !DomainOwner($A, <d, sub>) ]
 
 rule DomainCompromise:
-  [ !DomainOwner($A, d) ]
-  --[ CompromisedDomain(d) ]->
-  [ !DomainCompromised(d) ]
+  [ In($A), In(d) ]
+  --[ CompromisedDomainOwner($A)
+    , SomeCompromise() ]->
+  [ DomainRegister($A, d) ]
 
 // Certificate Transparency
 rule LogRegister:
