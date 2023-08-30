@@ -1,0 +1,2052 @@
+theory ADEM begin
+
+// Function signature and definition of the equational theory E
+
+functions: fst/1, pair/2, pk/1, sha256/1, sign/2, snd/1,
+           tlsClientMsg/4, tlsClientReceive/2, tlsServerMsg/4,
+           tlsServerReceive/2, true/0, verify/3
+equations:
+    fst(<x.1, x.2>) = x.1,
+    snd(<x.1, x.2>) = x.2,
+    tlsClientReceive(tlsServerMsg(~sess, domain, ~sk, m), ~sess) = m,
+    tlsServerReceive(tlsClientMsg(~sess, domain, pk(~sk), m), ~sk)
+  = ~sess,
+    tlsServerReceive(tlsClientMsg(~sess, domain, pk(~sk), m), ~sk) = m,
+    verify(sign(x.1, x.2), x.1, pk(x.2)) = true
+
+heuristic: o "./oracle.py"
+
+/*
+looping facts with injective instances:
+  VerifyAuthorityEndorsements/4
+*/
+
+rule (modulo E) DomainRegister:
+   [ DomainRegister( $A, d ) ]
+  --[ OnlyOnce( <'domain_register', d> ), NoTuple( d ) ]->
+   [ !DomainOwner( $A, d ) ]
+
+  /* has exactly the trivial AC variant */
+
+restriction NoTuple:
+  "∀ m #t. (NoTuple( m ) @ #t) ⇒ (¬(∃ l r. m = <l, r>))"
+  // safety formula
+
+rule (modulo E) SubdomainRegister:
+   [ DomainRegister( $A, <d, sub> ), !DomainOwner( $A, d ) ]
+  --[ OnlyOnce( <'domain_register', d, sub> ) ]->
+   [ !DomainOwner( $A, <d, sub> ) ]
+
+  // loop breaker: [1]
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) DomainCompromise:
+   [ In( $A ), In( d ) ]
+  --[ CompromisedDomainOwner( $A ), SomeCompromise( ) ]->
+   [ DomainRegister( $A, d ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) LogRegister:
+   [ ] --[ IsLog( $Log ) ]-> [ !Log( $Log ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Submit:
+   [
+   !CA( $CA, skCA ), !Log( $Log ),
+   In( <<'cert', $CA, d, pk>, certSig> )
+   ]
+  --[
+  Eq( verify(certSig, <'cert', $CA, d, pk>, pk(skCA)), true ),
+  Eq( fst(snd(<'cert', $CA, d, pk>)), $CA ),
+  LogInclusion( $Log, <<'cert', $CA, d, pk>, certSig> )
+  ]->
+   [ !MHTLeaf( $Log, <<'cert', $CA, d, pk>, certSig> ) ]
+
+  /*
+  rule (modulo AC) Submit:
+     [
+     !CA( $CA, skCA ), !Log( $Log ),
+     In( <<'cert', $CA, d, pk>, certSig> )
+     ]
+    --[
+    Eq( z, true ), Eq( $CA, $CA ),
+    LogInclusion( $Log, <<'cert', $CA, d, pk>, certSig> )
+    ]->
+     [ !MHTLeaf( $Log, <<'cert', $CA, d, pk>, certSig> ) ]
+    variants (modulo AC)
+    1. $CA   = $CA.15
+       certSig
+             = certSig.17
+       d     = d.18
+       pk    = pk.19
+       skCA  = skCA.20
+       z     = verify(certSig.17, <'cert', $CA.15, d.18, pk.19>,
+                      pk(skCA.20))
+    
+    2. $CA   = $CA.15
+       certSig
+             = sign(<'cert', $CA.15, d.18, pk.19>, skCA.20)
+       d     = d.18
+       pk    = pk.19
+       skCA  = skCA.20
+       z     = true
+  */
+
+rule (modulo E) AdversarialAppend:
+   [ In( msg ) ]
+  --[
+  LogInclusion( $Log, msg ), CompromisedParty( $Log ),
+  SomeCompromise( )
+  ]->
+   [ !MHTLeaf( $Log, msg ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) CA:
+   [ Fr( ~skCA ) ]
+  --[ CASk( $CA, ~skCA ), OnlyOnce( <'CA', $CA> ) ]->
+   [ !CA( $CA, ~skCA ), Out( pk(~skCA) ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) FraudulentCertificate:
+   [ !CA( $CA, ~skCA ), In( m ) ]
+  --[
+  SigningOracleCA( $CA, m ), CompromisedCA( $CA ),
+  CompromisedParty( $CA ), SomeCompromise( )
+  ]->
+   [ Out( sign(m, ~skCA) ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) TLSKeyRegister:
+   [ !DomainOwner( $A, d ), !CA( $CA, skCA ), Fr( ~skUser ) ]
+  --[ OnlyOnce( <'tls_key', d> ), TLSKeyGen( ~skUser ) ]->
+   [ !TLSKey( $A, $CA, d, ~skUser ), Out( pk(~skUser) ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) TLSKeyShare:
+   [ !TLSKey( $A, $CA, d1, ~skUser ), !DomainOwner( $A, d2 ) ]
+  --[
+  TLSKeyShare( ~skUser ), OnlyOnce( <'tls_key', d2> ),
+  Eq( d1, fst(d2) )
+  ]->
+   [ !TLSKey( $A, $CA, d2, ~skUser ) ]
+
+  // loop breaker: [0]
+  /*
+  rule (modulo AC) TLSKeyShare:
+     [ !TLSKey( $A, $CA, d1, ~skUser ), !DomainOwner( $A, d2 ) ]
+    --[
+    TLSKeyShare( ~skUser ), OnlyOnce( <'tls_key', d2> ), Eq( d1, z )
+    ]->
+     [ !TLSKey( $A, $CA, d2, ~skUser ) ]
+    variants (modulo AC)
+    1. d2    = d2.9
+       z     = fst(d2.9)
+    
+    2. d2    = <z.10, x.12>
+       z     = z.10
+    // loop breaker: [0]
+  */
+
+rule (modulo E) TLSKeyLeak:
+   [ !TLSKey( $A, $CA, d, ~skUser ) ]
+  --[ CompromisedTLSKey( ~skUser ), SomeCompromise( ) ]->
+   [ Out( ~skUser ) ]
+
+  /* has exactly the trivial AC variant */
+
+lemma TLSKeyShareRecursion [use_induction, reuse]:
+  all-traces
+  "∀ k #t1. (TLSKeyShare( k ) @ #t1) ⇒ (∃ #t2. TLSKeyGen( k ) @ #t2)"
+/*
+guarded formula characterizing all counter-examples:
+"∃ k #t1.
+  (TLSKeyShare( k ) @ #t1) ∧ ∀ #t2. (TLSKeyGen( k ) @ #t2) ⇒ ⊥"
+*/
+induction
+  case empty_trace
+  by contradiction /* from formulas */
+next
+  case non_empty_trace
+  simplify
+  solve( (last(#t1))  ∥
+         (∃ #t2. (TLSKeyGen( ~skUser ) @ #t2) ∧ ¬(last(#t2))) )
+    case case_1
+    solve( splitEqs(0) )
+      case split_case_1
+      solve( !TLSKey( $A, $CA, d1, ~skUser ) ▶₀ #t1 )
+        case TLSKeyRegister_case_1
+        by contradiction /* from formulas */
+      next
+        case TLSKeyRegister_case_2
+        by contradiction /* from formulas */
+      next
+        case TLSKeyRegister_case_3
+        by contradiction /* from formulas */
+      next
+        case TLSKeyRegister_case_4
+        by contradiction /* from formulas */
+      next
+        case TLSKeyShare_case_1
+        by contradiction /* from formulas */
+      next
+        case TLSKeyShare_case_2
+        by contradiction /* from formulas */
+      next
+        case TLSKeyShare_case_3
+        by contradiction /* from formulas */
+      next
+        case TLSKeyShare_case_4
+        by contradiction /* from formulas */
+      qed
+    next
+      case split_case_2
+      solve( !TLSKey( $A, $CA, fst(d2), ~skUser ) ▶₀ #t1 )
+        case TLSKeyRegister
+        by contradiction /* from formulas */
+      next
+        case TLSKeyShare
+        by contradiction /* from formulas */
+      qed
+    qed
+  next
+    case case_2
+    by contradiction /* from formulas */
+  qed
+qed
+
+lemma TLSKeyLeakRecursion [use_induction, reuse]:
+  all-traces
+  "∀ k #t.
+    (CompromisedTLSKey( k ) @ #t) ⇒ (∃ #x. TLSKeyGen( k ) @ #x)"
+/*
+guarded formula characterizing all counter-examples:
+"∃ k #t.
+  (CompromisedTLSKey( k ) @ #t) ∧ ∀ #x. (TLSKeyGen( k ) @ #x) ⇒ ⊥"
+*/
+induction
+  case empty_trace
+  by contradiction /* from formulas */
+next
+  case non_empty_trace
+  simplify
+  solve( (last(#t))  ∥
+         (∃ #x. (TLSKeyGen( ~skUser ) @ #x) ∧ ¬(last(#x))) )
+    case case_1
+    solve( !TLSKey( $A, $CA, d, ~skUser ) ▶₀ #t )
+      case TLSKeyRegister_case_1
+      by contradiction /* from formulas */
+    next
+      case TLSKeyRegister_case_2
+      by contradiction /* from formulas */
+    next
+      case TLSKeyRegister_case_3
+      by contradiction /* from formulas */
+    next
+      case TLSKeyRegister_case_4
+      by contradiction /* from formulas */
+    next
+      case TLSKeyShare_case_1
+      by contradiction /* from formulas */
+    next
+      case TLSKeyShare_case_2
+      by contradiction /* from formulas */
+    next
+      case TLSKeyShare_case_3
+      by contradiction /* from formulas */
+    next
+      case TLSKeyShare_case_4
+      by contradiction /* from formulas */
+    qed
+  next
+    case case_2
+    by contradiction /* from formulas */
+  qed
+qed
+
+lemma WrongCAKeyUseImpliesCompromise [reuse]:
+  all-traces
+  "∀ tag m ca caSk #t1 #t2.
+    (((CASk( ca, caSk ) @ #t1) ∧
+      (!KU( <<tag, m>, sign(<'tag', m>, caSk)> ) @ #t2)) ∧
+     (¬(tag = 'cert'))) ⇒
+    (∃ #x. (CompromisedCA( ca ) @ #x) ∧ (CompromisedParty( ca ) @ #x))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ tag m ca caSk #t1 #t2.
+  (CASk( ca, caSk ) @ #t1) ∧
+  (!KU( <<tag, m>, sign(<'tag', m>, caSk)> ) @ #t2)
+ ∧
+  (¬(tag = 'cert')) ∧
+  (∀ #x.
+    (CompromisedCA( ca ) @ #x) ∧ (CompromisedParty( ca ) @ #x) ⇒ ⊥)"
+*/
+simplify
+solve( !KU( sign(<'tag', m>, ~skCA) ) @ #vk.3 )
+  case FraudulentCertificate
+  by contradiction /* from formulas */
+next
+  case c_sign
+  by solve( !KU( ~skCA ) @ #vk.5 )
+qed
+
+rule (modulo E) CertificateRequest:
+   [
+   !DomainOwner( $A, d ), !TLSKey( $A, $CA, d, ~skTLS ),
+   !CA( $CA, ~skCA )
+   ]
+  --[ OnlyOnce( <'certificate', d> ) ]->
+   [ Out( sign(<'cert', $CA, d, pk(~skTLS)>, ~skCA) ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Ltk:
+   [ Fr( ~rootKey ) ]
+  -->
+   [ !Ltk( $A, ~rootKey ), Out( pk(~rootKey) ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) AssetKey:
+   [ Fr( ~assetKey ) ]
+  -->
+   [ !LtkAsset( $A, ~assetKey ), Out( pk(~assetKey) ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Reveal:
+   [ !Ltk( $A, ~ltk ) ]
+  --[
+  CompromisedADEMParty( $A, pk(~ltk) ), CompromisedParty( $A ),
+  SomeCompromise( )
+  ]->
+   [ Out( ~ltk ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) RevealAsset:
+   [ !LtkAsset( $A, ~ltk ) ]
+  --[ CompromisedAssetKey( $A, pk(~ltk) ), SomeCompromise( ) ]->
+   [ Out( ~ltk ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) RootSetupDomains:
+   [ !Ltk( $Party, ~rootKey ) ]
+  --[
+  OnlyOnce( <'root', $OI> ), IsRootPK( $Party, $OI, pk(~rootKey) ),
+  OI( $Party, $OI )
+  ]->
+   [
+   DomainRegister( $Party, $OI ),
+   DomainRegister( $Party, <$OI, sha256(pk(~rootKey))> ),
+   !RootDomains( $Party, ~rootKey, $OI, <$OI, sha256(pk(~rootKey))> )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) RootSetupCertificates:
+   [
+   !CA( $CA, skCA ), !RootDomains( $P, ~rootKey, oi, rootD ),
+   !TLSKey( $P, $CA, oi, tlsSk ), !TLSKey( $P, $CA, rootD, tlsSk ),
+   !MHTLeaf( $Log, <<'cert', $CA, oi, pk(tlsSk)>, sigOiCert> ),
+   !MHTLeaf( $Log, <<'cert', $CA, rootD, pk(tlsSk)>, sigRootCert> )
+   ]
+  --[
+  OnlyOnce( <'root_setup', oi> ),
+  Eq( verify(sigOiCert, <'cert', $CA, oi, pk(tlsSk)>, pk(skCA)), true
+  ),
+  Eq( verify(sigRootCert, <'cert', $CA, rootD, pk(tlsSk)>, pk(skCA)),
+      true
+  )
+  ]->
+   [ !RootSetup( $P, ~rootKey, oi, rootD ) ]
+
+  /*
+  rule (modulo AC) RootSetupCertificates:
+     [
+     !CA( $CA, skCA ), !RootDomains( $P, ~rootKey, oi, rootD ),
+     !TLSKey( $P, $CA, oi, tlsSk ), !TLSKey( $P, $CA, rootD, tlsSk ),
+     !MHTLeaf( $Log, <<'cert', $CA, oi, pk(tlsSk)>, sigOiCert> ),
+     !MHTLeaf( $Log, <<'cert', $CA, rootD, pk(tlsSk)>, sigRootCert> )
+     ]
+    --[ OnlyOnce( <'root_setup', oi> ), Eq( z, true ), Eq( z.1, true )
+    ]->
+     [ !RootSetup( $P, ~rootKey, oi, rootD ) ]
+    variants (modulo AC)
+    1. $CA   = $CA.25
+       oi    = oi.29
+       rootD = rootD.30
+       sigOiCert
+             = sigOiCert.31
+       sigRootCert
+             = sigRootCert.32
+       skCA  = skCA.33
+       tlsSk = tlsSk.34
+       z     = verify(sigOiCert.31, <'cert', $CA.25, oi.29, pk(tlsSk.34)>,
+                      pk(skCA.33))
+       z.1   = verify(sigRootCert.32,
+                      <'cert', $CA.25, rootD.30, pk(tlsSk.34)>, pk(skCA.33))
+    
+    2. $CA   = $CA.25
+       oi    = oi.29
+       rootD = rootD.30
+       sigOiCert
+             = sigOiCert.31
+       sigRootCert
+             = sign(<'cert', $CA.25, rootD.30, pk(tlsSk.34)>, skCA.33)
+       skCA  = skCA.33
+       tlsSk = tlsSk.34
+       z     = verify(sigOiCert.31, <'cert', $CA.25, oi.29, pk(tlsSk.34)>,
+                      pk(skCA.33))
+       z.1   = true
+    
+    3. $CA   = $CA.25
+       oi    = oi.29
+       rootD = rootD.30
+       sigOiCert
+             = sign(<'cert', $CA.25, oi.29, pk(tlsSk.34)>, skCA.33)
+       sigRootCert
+             = sigRootCert.32
+       skCA  = skCA.33
+       tlsSk = tlsSk.34
+       z     = true
+       z.1   = verify(sigRootCert.32,
+                      <'cert', $CA.25, rootD.30, pk(tlsSk.34)>, pk(skCA.33))
+    
+    4. $CA   = $CA.25
+       oi    = oi.29
+       rootD = rootD.30
+       sigOiCert
+             = sign(<'cert', $CA.25, oi.29, pk(tlsSk.34)>, skCA.33)
+       sigRootCert
+             = sign(<'cert', $CA.25, rootD.30, pk(tlsSk.34)>, skCA.33)
+       skCA  = skCA.33
+       tlsSk = tlsSk.34
+       z     = true
+       z.1   = true
+  */
+
+rule (modulo E) RootKeyLearn:
+   [
+   !CA( $CA, skCA ), !Log( $Log ),
+   !MHTLeaf( $Log, <<'cert', $CA, oi, pk(tlsSk)>, certOiSig> ),
+   !MHTLeaf( $Log,
+             <<'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>, certRootDSig>
+   )
+   ]
+  --[
+  Eq( verify(certOiSig, <'cert', $CA, oi, pk(tlsSk)>, pk(skCA)), true
+  ),
+  Eq( verify(certRootDSig,
+             <'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>, pk(skCA)),
+      true
+  ),
+  VerifiedRootKey( oi, rootKey ),
+  RootCertVerified( <
+                     <'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>, certRootDSig>
+  ),
+  LogInclusionVerified( $Log, <'cert', $CA, oi, pk(tlsSk)> ),
+  LogInclusionVerified( $Log,
+                        <'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>
+  )
+  ]->
+   [ RootKeyVerified( oi, rootKey ) ]
+
+  /*
+  rule (modulo AC) RootKeyLearn:
+     [
+     !CA( $CA, skCA ), !Log( $Log ),
+     !MHTLeaf( $Log, <<'cert', $CA, oi, pk(tlsSk)>, certOiSig> ),
+     !MHTLeaf( $Log,
+               <<'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>, certRootDSig>
+     )
+     ]
+    --[
+    Eq( z, true ), Eq( z.1, true ), VerifiedRootKey( oi, rootKey ),
+    RootCertVerified( <
+                       <'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>, certRootDSig>
+    ),
+    LogInclusionVerified( $Log, <'cert', $CA, oi, pk(tlsSk)> ),
+    LogInclusionVerified( $Log,
+                          <'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>
+    )
+    ]->
+     [ RootKeyVerified( oi, rootKey ) ]
+    variants (modulo AC)
+    1. $CA   = $CA.13
+       certOiSig
+             = certOiSig.15
+       certRootDSig
+             = certRootDSig.16
+       oi    = oi.17
+       rootKey
+             = rootKey.18
+       skCA  = skCA.19
+       tlsSk = tlsSk.20
+       z     = verify(certOiSig.15, <'cert', $CA.13, oi.17, pk(tlsSk.20)>,
+                      pk(skCA.19))
+       z.1   = verify(certRootDSig.16,
+                      <'cert', $CA.13, <oi.17, sha256(rootKey.18)>, pk(tlsSk.20)>,
+                      pk(skCA.19))
+    
+    2. $CA   = $CA.18
+       certOiSig
+             = sign(<'cert', $CA.18, oi.22, pk(tlsSk.25)>, skCA.24)
+       certRootDSig
+             = certRootDSig.21
+       oi    = oi.22
+       rootKey
+             = rootKey.23
+       skCA  = skCA.24
+       tlsSk = tlsSk.25
+       z     = true
+       z.1   = verify(certRootDSig.21,
+                      <'cert', $CA.18, <oi.22, sha256(rootKey.23)>, pk(tlsSk.25)>,
+                      pk(skCA.24))
+    
+    3. $CA   = $CA.18
+       certOiSig
+             = sign(<'cert', $CA.18, oi.22, pk(tlsSk.25)>, skCA.24)
+       certRootDSig
+             = sign(<'cert', $CA.18, <oi.22, sha256(rootKey.23)>, pk(tlsSk.25)>,
+                    skCA.24)
+       oi    = oi.22
+       rootKey
+             = rootKey.23
+       skCA  = skCA.24
+       tlsSk = tlsSk.25
+       z     = true
+       z.1   = true
+    
+    4. $CA   = $CA.20
+       certOiSig
+             = certOiSig.22
+       certRootDSig
+             = sign(<'cert', $CA.20, <oi.24, sha256(rootKey.25)>, pk(tlsSk.27)>,
+                    skCA.26)
+       oi    = oi.24
+       rootKey
+             = rootKey.25
+       skCA  = skCA.26
+       tlsSk = tlsSk.27
+       z     = verify(certOiSig.22, <'cert', $CA.20, oi.24, pk(tlsSk.27)>,
+                      pk(skCA.26))
+       z.1   = true
+  */
+
+lemma CanObtainRootKey:
+  exists-trace
+  "(∃ oi rootKey #t. VerifiedRootKey( oi, rootKey ) @ #t) ∧
+   (¬(∃ #x. SomeCompromise( ) @ #x))"
+/*
+guarded formula characterizing all satisfying traces:
+"(∃ oi rootKey #t. (VerifiedRootKey( oi, rootKey ) @ #t)) ∧
+ (∀ #x. (SomeCompromise( ) @ #x) ⇒ ⊥)"
+*/
+by sorry
+
+rule (modulo E) Asset:
+   [ !LtkAsset( $E, assetKey ), !RootSetup( $P, rootKey, oi, rootD ) ]
+  --[ IsAsset( $P, $E, pk(assetKey) ), OnlyOnce( <'asset', $E> ) ]->
+   [ !AssetOf( $P, $E, assetKey ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) EndorseAsset:
+   [
+   !AssetOf( $P, $E, assetKey ),
+   !RootDomains( $P, rootKey, oi, rootD )
+   ]
+  --[ OnlyOnce( <'endorsed', $E> ) ]->
+   [ Out( sign(<'end_int', oi, pk(assetKey)>, rootKey) ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) EndorseParty:
+   [
+   !RootDomains( $Endorsed, rootKeyT, oiT, rootDT ),
+   !RootDomains( $Endorser, rootKeyS, oiS, rootDS )
+   ]
+  -->
+   [ Out( sign(<'end_ext', oiS, oiT, pk(rootKeyT)>, rootKeyS) ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) SendEmblem:
+   [
+   !AssetOf( $P, $E, assetKey ),
+   !RootDomains( $P, rootKey, oi, rootD )
+   ]
+  -->
+   [ Out( sign(<'emblem', $E, oi>, assetKey) ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) ReceiveEmblem:
+   [
+   Fr( ~id ), In( <epk, <'emblem', $E, oi>, emblemSignature> ),
+   In( <rootKey, <'end_int', oi, epk>, signature> ),
+   RootKeyVerified( oi, rootKey )
+   ]
+  --[
+  VerifiedEndorsed( ~id, oi, $E, epk ),
+  VerifiedRootEndorsement( ~id, oi, rootKey ),
+  UsedRootKey( oi, rootKey ),
+  Eq( verify(emblemSignature, <'emblem', $E, oi>, epk), true ),
+  Eq( verify(signature, <'end_int', oi, epk>, rootKey), true )
+  ]->
+   [ VerifyAuthorityEndorsements( ~id, oi, rootKey, $E ) ]
+
+  /*
+  rule (modulo AC) ReceiveEmblem:
+     [
+     Fr( ~id ), In( <epk, <'emblem', $E, oi>, emblemSignature> ),
+     In( <rootKey, <'end_int', oi, epk>, signature> ),
+     RootKeyVerified( oi, rootKey )
+     ]
+    --[
+    VerifiedEndorsed( ~id, oi, $E, epk ),
+    VerifiedRootEndorsement( ~id, oi, rootKey ),
+    UsedRootKey( oi, rootKey ), Eq( z, true ), Eq( z.1, true )
+    ]->
+     [ VerifyAuthorityEndorsements( ~id, oi, rootKey, $E ) ]
+    variants (modulo AC)
+    1. $E    = $E.19
+       emblemSignature
+             = emblemSignature.21
+       epk   = epk.22
+       oi    = oi.23
+       rootKey
+             = rootKey.24
+       signature
+             = signature.25
+       z     = verify(emblemSignature.21, <'emblem', $E.19, oi.23>,
+                      epk.22)
+       z.1   = verify(signature.25, <'end_int', oi.23, epk.22>,
+                      rootKey.24)
+    
+    2. $E    = $E.26
+       emblemSignature
+             = emblemSignature.28
+       epk   = epk.29
+       oi    = oi.30
+       rootKey
+             = pk(x.50)
+       signature
+             = sign(<'end_int', oi.30, epk.29>, x.50)
+       z     = verify(emblemSignature.28, <'emblem', $E.26, oi.30>,
+                      epk.29)
+       z.1   = true
+    
+    3. $E    = $E.27
+       emblemSignature
+             = sign(<'emblem', $E.27, oi.31>, x.52)
+       epk   = pk(x.52)
+       oi    = oi.31
+       rootKey
+             = rootKey.32
+       signature
+             = signature.33
+       z     = true
+       z.1   = verify(signature.33, <'end_int', oi.31, pk(x.52)>,
+                      rootKey.32)
+    
+    4. $E    = $E.28
+       emblemSignature
+             = sign(<'emblem', $E.28, oi.32>, x.53)
+       epk   = pk(x.53)
+       oi    = oi.32
+       rootKey
+             = pk(x.54)
+       signature
+             = sign(<'end_int', oi.32, pk(x.53)>, x.54)
+       z     = true
+       z.1   = true
+  */
+
+rule (modulo E) VerifyAuthorityEndorsementsTerminate:
+   [ VerifyAuthorityEndorsements( ~id, oi, rootKey, $E ) ] --> [ ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) ReceiveAuthorityEndorsement:
+   [
+   VerifyAuthorityEndorsements( ~id, oi, rootKey, $E ), Fr( ~sess ),
+   In( <authPk, <'end_ext', auth, oi, rootKey>, endSignature> ),
+   RootKeyVerified( auth, authPk )
+   ]
+  --[
+  Neq( auth, oi ),
+  Eq( verify(endSignature, <'end_ext', auth, oi, rootKey>, authPk),
+      true
+  ),
+  VerifiedAuthorityEndorsement( ~id, auth, authPk, oi, rootKey ),
+  UsedRootKey( auth, authPk )
+  ]->
+   [ VerifyAuthorityEndorsements( ~id, oi, rootKey, $E ) ]
+
+  // loop breaker: [0]
+  /*
+  rule (modulo AC) ReceiveAuthorityEndorsement:
+     [
+     VerifyAuthorityEndorsements( ~id, oi, rootKey, $E ), Fr( ~sess ),
+     In( <authPk, <'end_ext', auth, oi, rootKey>, endSignature> ),
+     RootKeyVerified( auth, authPk )
+     ]
+    --[
+    Neq( auth, oi ), Eq( z, true ),
+    VerifiedAuthorityEndorsement( ~id, auth, authPk, oi, rootKey ),
+    UsedRootKey( auth, authPk )
+    ]->
+     [ VerifyAuthorityEndorsements( ~id, oi, rootKey, $E ) ]
+    variants (modulo AC)
+    1. auth  = auth.12
+       authPk
+             = authPk.13
+       endSignature
+             = endSignature.14
+       oi    = oi.15
+       rootKey
+             = rootKey.16
+       z     = verify(endSignature.14,
+                      <'end_ext', auth.12, oi.15, rootKey.16>, authPk.13)
+    
+    2. auth  = auth.15
+       authPk
+             = pk(x.23)
+       endSignature
+             = sign(<'end_ext', auth.15, oi.18, rootKey.19>, x.23)
+       oi    = oi.18
+       rootKey
+             = rootKey.19
+       z     = true
+    // loop breaker: [0]
+  */
+
+lemma CanReceiveEmblem:
+  exists-trace
+  "(∃ id oi asset assetKey rootKey authOi1 authOi2 authPk1 authPk2 p1
+      p2 #a #b #c #d #e #f.
+     ((((((VerifiedEndorsed( id, oi, asset, assetKey ) @ #a) ∧
+          (VerifiedRootEndorsement( id, oi, rootKey ) @ #b)) ∧
+         (VerifiedAuthorityEndorsement( id, authOi1, authPk1, oi, rootKey
+          ) @ #c)) ∧
+        (VerifiedAuthorityEndorsement( id, authOi2, authPk2, oi, rootKey
+         ) @ #d)) ∧
+       (IsRootPK( p1, authOi1, authPk1 ) @ #e)) ∧
+      (IsRootPK( p2, authOi2, authPk2 ) @ #f)) ∧
+     (¬(authOi1 = authOi2))) ∧
+   (¬(∃ #x. SomeCompromise( ) @ #x))"
+/*
+guarded formula characterizing all satisfying traces:
+"(∃ id oi asset assetKey rootKey authOi1 authOi2 authPk1 authPk2 p1
+    p2 #a #b #c #d #e #f.
+   (VerifiedEndorsed( id, oi, asset, assetKey ) @ #a) ∧
+   (VerifiedRootEndorsement( id, oi, rootKey ) @ #b) ∧
+   (VerifiedAuthorityEndorsement( id, authOi1, authPk1, oi, rootKey
+    ) @ #c) ∧
+   (VerifiedAuthorityEndorsement( id, authOi2, authPk2, oi, rootKey
+    ) @ #d) ∧
+   (IsRootPK( p1, authOi1, authPk1 ) @ #e) ∧
+   (IsRootPK( p2, authOi2, authPk2 ) @ #f)
+  ∧
+   ¬(authOi1 = authOi2)) ∧
+ (∀ #x. (SomeCompromise( ) @ #x) ⇒ ⊥)"
+*/
+by sorry
+
+lemma VerifiedAuthorityOrigin [reuse, use_induction]:
+  all-traces
+  "∀ loop auth authKey oi rootKey #t1.
+    (VerifiedAuthorityEndorsement( loop, auth, authKey, oi, rootKey
+     ) @ #t1) ⇒
+    ((∃ #t2.
+       (VerifiedRootEndorsement( loop, oi, rootKey ) @ #t2) ∧
+       (#t2 < #t1)) ∧
+     (∀ p1 p2 rk1 rk2 #t2 #t3.
+       ((VerifiedRootEndorsement( loop, p1, rk1 ) @ #t2) ∧
+        (VerifiedRootEndorsement( loop, p2, rk2 ) @ #t3)) ⇒
+       (((((oi = p1) ∧ (p1 = p2)) ∧ (#t2 = #t3)) ∧ (rootKey = rk1)) ∧
+        (rk1 = rk2))))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ loop auth authKey oi rootKey #t1.
+  (VerifiedAuthorityEndorsement( loop, auth, authKey, oi, rootKey
+   ) @ #t1)
+ ∧
+  ((∀ #t2.
+     (VerifiedRootEndorsement( loop, oi, rootKey ) @ #t2)
+    ⇒
+     ¬(#t2 < #t1)) ∨
+   (∃ p1 p2 rk1 rk2 #t2 #t3.
+     (VerifiedRootEndorsement( loop, p1, rk1 ) @ #t2) ∧
+     (VerifiedRootEndorsement( loop, p2, rk2 ) @ #t3)
+    ∧
+     ((¬(oi = p1)) ∨
+      (¬(p1 = p2)) ∨
+      (¬(#t2 = #t3)) ∨
+      (¬(rootKey = rk1)) ∨
+      (¬(rk1 = rk2)))))"
+*/
+induction
+  case empty_trace
+  by contradiction /* from formulas */
+next
+  case non_empty_trace
+  simplify
+  solve( (∀ #t2.
+           (VerifiedRootEndorsement( ~id, oi, rootKey ) @ #t2)
+          ⇒
+           ¬(#t2 < #t1))  ∥
+         (∃ p1 p2 rk1 rk2 #t2 #t3.
+           (VerifiedRootEndorsement( ~id, p1, rk1 ) @ #t2) ∧
+           (VerifiedRootEndorsement( ~id, p2, rk2 ) @ #t3)
+          ∧
+           ((¬(oi = p1)) ∨
+            (¬(p1 = p2)) ∨
+            (¬(#t2 = #t3)) ∨
+            (¬(rootKey = rk1)) ∨
+            (¬(rk1 = rk2)))) )
+    case case_1
+    solve( (last(#t1))  ∥
+           ((∃ #t2.
+              (VerifiedRootEndorsement( ~id, oi, rootKey ) @ #t2)
+             ∧
+              (¬(last(#t2))) ∧ (#t2 < #t1)) ∧
+            (∀ p1 p2 rk1 rk2 #t2 #t3.
+              (VerifiedRootEndorsement( ~id, p1, rk1 ) @ #t2) ∧
+              (VerifiedRootEndorsement( ~id, p2, rk2 ) @ #t3)
+             ⇒
+              ((last(#t3)) ∨
+               (last(#t2)) ∨
+               ((oi = p1) ∧
+                (p1 = p2) ∧
+                (#t2 = #t3) ∧
+                (rootKey = rk1) ∧
+                (rk1 = rk2))))) )
+      case case_1
+      solve( VerifyAuthorityEndorsements( ~id, oi, rootKey, $E ) ▶₀ #t1 )
+        case ReceiveAuthorityEndorsement_case_1
+        by contradiction /* from formulas */
+      next
+        case ReceiveAuthorityEndorsement_case_2
+        by contradiction /* from formulas */
+      next
+        case ReceiveAuthorityEndorsement_case_3
+        by contradiction /* from formulas */
+      next
+        case ReceiveAuthorityEndorsement_case_4
+        by contradiction /* from formulas */
+      next
+        case ReceiveEmblem_case_1
+        by contradiction /* from formulas */
+      next
+        case ReceiveEmblem_case_2
+        by contradiction /* from formulas */
+      next
+        case ReceiveEmblem_case_3
+        by contradiction /* from formulas */
+      next
+        case ReceiveEmblem_case_4
+        by contradiction /* from formulas */
+      qed
+    next
+      case case_2
+      by contradiction /* from formulas */
+    qed
+  next
+    case case_2
+    solve( (last(#t1))  ∥
+           ((∃ #t2.
+              (VerifiedRootEndorsement( ~id, oi, rootKey ) @ #t2)
+             ∧
+              (¬(last(#t2))) ∧ (#t2 < #t1)) ∧
+            (∀ p1 p2 rk1 rk2 #t2 #t3.
+              (VerifiedRootEndorsement( ~id, p1, rk1 ) @ #t2) ∧
+              (VerifiedRootEndorsement( ~id, p2, rk2 ) @ #t3)
+             ⇒
+              ((last(#t3)) ∨
+               (last(#t2)) ∨
+               ((oi = p1) ∧
+                (p1 = p2) ∧
+                (#t2 = #t3) ∧
+                (rootKey = rk1) ∧
+                (rk1 = rk2))))) )
+      case case_1
+      solve( VerifyAuthorityEndorsements( ~id, oi, rootKey, $E ) ▶₀ #t1 )
+        case ReceiveAuthorityEndorsement_case_1
+        by contradiction /* from formulas */
+      next
+        case ReceiveAuthorityEndorsement_case_2
+        by contradiction /* from formulas */
+      next
+        case ReceiveAuthorityEndorsement_case_3
+        by contradiction /* from formulas */
+      next
+        case ReceiveAuthorityEndorsement_case_4
+        by contradiction /* from formulas */
+      next
+        case ReceiveEmblem_case_1
+        by contradiction /* from formulas */
+      next
+        case ReceiveEmblem_case_2
+        by contradiction /* from formulas */
+      next
+        case ReceiveEmblem_case_3
+        by contradiction /* from formulas */
+      next
+        case ReceiveEmblem_case_4
+        by contradiction /* from formulas */
+      qed
+    next
+      case case_2
+      by contradiction /* from formulas */
+    qed
+  qed
+qed
+
+lemma AuthenticEmblem:
+  all-traces
+  "∀ id oi asset assetKey rootKey #t1 #t2.
+    ((VerifiedEndorsed( id, oi, asset, assetKey ) @ #t1) ∧
+     (VerifiedRootEndorsement( id, oi, rootKey ) @ #t2)) ⇒
+    (((((∃ pp #x #y.
+          (OI( pp, oi ) @ #x) ∧ (IsAsset( pp, asset, assetKey ) @ #y)) ∨
+        (∃ p #x #y.
+          (OI( p, oi ) @ #x) ∧ (CompromisedADEMParty( p, rootKey ) @ #y))) ∨
+       (∃ otherA #x. CompromisedAssetKey( otherA, assetKey ) @ #x)) ∨
+      (¬(∃ authOi authPk endorsedKey #t3.
+          VerifiedAuthorityEndorsement( id, authPk, authOi, oi, endorsedKey
+          ) @ #t3))) ∨
+     (∀ authOI authPk endorsedKey #x.
+       (VerifiedAuthorityEndorsement( id, authOI, authPk, oi, endorsedKey
+        ) @ #x) ⇒
+       ((∃ p #y #z.
+          (OI( p, authOI ) @ #y) ∧
+          (CompromisedADEMParty( p, authPk ) @ #z)) ∨
+        (¬(∃ p #y. IsRootPK( p, authOI, authPk ) @ #y)))))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ id oi asset assetKey rootKey #t1 #t2.
+  (VerifiedEndorsed( id, oi, asset, assetKey ) @ #t1) ∧
+  (VerifiedRootEndorsement( id, oi, rootKey ) @ #t2)
+ ∧
+  (∀ pp #x #y.
+    (OI( pp, oi ) @ #x) ∧ (IsAsset( pp, asset, assetKey ) @ #y) ⇒ ⊥) ∧
+  (∀ p #x #y.
+    (OI( p, oi ) @ #x) ∧ (CompromisedADEMParty( p, rootKey ) @ #y)
+   ⇒
+    ⊥) ∧
+  (∀ otherA #x. (CompromisedAssetKey( otherA, assetKey ) @ #x) ⇒ ⊥) ∧
+  (∃ authOi authPk endorsedKey #t3.
+    (VerifiedAuthorityEndorsement( id, authPk, authOi, oi, endorsedKey
+     ) @ #t3)) ∧
+  (∃ authOI authPk endorsedKey #x.
+    (VerifiedAuthorityEndorsement( id, authOI, authPk, oi, endorsedKey
+     ) @ #x)
+   ∧
+    (∀ p #y #z.
+      (OI( p, authOI ) @ #y) ∧ (CompromisedADEMParty( p, authPk ) @ #z)
+     ⇒
+      ⊥) ∧
+    (∃ p #y. (IsRootPK( p, authOI, authPk ) @ #y)))"
+*/
+simplify
+solve( !Ltk( $Party, ~rootKey ) ▶₀ #y )
+  case Ltk
+  solve( !KU( sign(<'emblem', $E, oi>, x) ) @ #vk.13 )
+    case FraudulentCertificate
+    solve( !KU( sign(<'end_int', oi, pk(~skCA)>, x) ) @ #vk.20 )
+      case FraudulentCertificate
+      solve( !KU( sign(<'end_ext', $OI, oi, pk(~skCA.1)>, ~rootKey)
+             ) @ #vk.31 )
+        case c_sign
+        solve( !KU( ~rootKey ) @ #vk.32 )
+          case Reveal
+          by contradiction /* from formulas */
+        qed
+      qed
+    next
+      case c_sign
+      solve( !KU( sign(<'end_ext', $OI, oi, pk(x)>, ~rootKey)
+             ) @ #vk.31 )
+        case EndorseParty
+        solve( !KU( ~rootKey ) @ #vk.32 )
+          case Reveal
+          by contradiction /* from formulas */
+        qed
+      next
+        case c_sign
+        solve( !KU( ~rootKey ) @ #vk.33 )
+          case Reveal
+          by contradiction /* from formulas */
+        qed
+      qed
+    qed
+  next
+    case SendEmblem_case_01
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_02
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_03
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_04
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_05
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_06
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_07
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_08
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_09
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_10
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_11
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_12
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_13
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_14
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_15
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_16
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_17
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_18
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_19
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_20
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_21
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_22
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_23
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_24
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_25
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_26
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_27
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_28
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_29
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_30
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_31
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_32
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_33
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_34
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_35
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_36
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_37
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_38
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_39
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_40
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_41
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_42
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_43
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_44
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_45
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_46
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_47
+    by contradiction /* from formulas */
+  next
+    case SendEmblem_case_48
+    by contradiction /* from formulas */
+  next
+    case c_sign
+    solve( !KU( sign(<'end_int', oi, pk(x)>, x.1) ) @ #vk.20 )
+      case EndorseAsset_case_01
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_02
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_03
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_04
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_05
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_06
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_07
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_08
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_09
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_10
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_11
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_12
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_13
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_14
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_15
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_16
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_17
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_18
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_19
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_20
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_21
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_22
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_23
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_24
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_25
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_26
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_27
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_28
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_29
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_30
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_31
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_32
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_33
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_34
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_35
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_36
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_37
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_38
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_39
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_40
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_41
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_42
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_43
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_44
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_45
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_46
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_47
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case EndorseAsset_case_48
+      solve( !KU( ~assetKey ) @ #vk.33 )
+        case RevealAsset
+        by contradiction /* from formulas */
+      qed
+    next
+      case FraudulentCertificate
+      solve( !KU( sign(<'end_ext', $OI, oi, pk(~skCA)>, ~rootKey)
+             ) @ #vk.31 )
+        case c_sign
+        solve( !KU( ~rootKey ) @ #vk.33 )
+          case Reveal
+          by contradiction /* from formulas */
+        qed
+      qed
+    next
+      case c_sign
+      solve( !KU( sign(<'end_ext', $OI, oi, pk(x.1)>, ~rootKey)
+             ) @ #vk.31 )
+        case EndorseParty
+        solve( !KU( ~rootKey ) @ #vk.33 )
+          case Reveal
+          by contradiction /* from formulas */
+        qed
+      next
+        case c_sign
+        solve( !KU( ~rootKey ) @ #vk.34 )
+          case Reveal
+          by contradiction /* from formulas */
+        qed
+      qed
+    qed
+  qed
+qed
+
+rule (modulo E) MonitorLogs:
+   [
+   !MHTLeaf( $Log, <<'cert', $SigningCA, d, pkTLS>, sig> ),
+   !TLSKey( $P, $CA, d, skTLS )
+   ]
+  --[
+  Neq( pk(skTLS), pkTLS ), Dispute( $P, $Log, $SigningCA, d, pkTLS )
+  ]->
+   [ ]
+
+  /* has exactly the trivial AC variant */
+
+lemma CanDisupte:
+  exists-trace
+  "∃ p log ca d pk #t. Dispute( p, log, ca, d, pk ) @ #t"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ p log ca d pk #t. (Dispute( p, log, ca, d, pk ) @ #t)"
+*/
+by sorry
+
+lemma CAAccountability:
+  all-traces
+  "∀ p log ca d pk skCA #x #y #z.
+    (((Dispute( p, log, ca, d, pk ) @ #x) ∧ (CASk( ca, skCA ) @ #y)) ∧
+     (LogInclusion( log,
+                    <<'cert', ca, d, pk>, sign(<'cert', ca, d, pk>, skCA)>
+      ) @ #z)) ⇒
+    (∃ #a. CompromisedParty( ca ) @ #a)"
+/*
+guarded formula characterizing all counter-examples:
+"∃ p log ca d pk skCA #x #y #z.
+  (Dispute( p, log, ca, d, pk ) @ #x) ∧
+  (CASk( ca, skCA ) @ #y) ∧
+  (LogInclusion( log,
+                 <<'cert', ca, d, pk>, sign(<'cert', ca, d, pk>, skCA)>
+   ) @ #z)
+ ∧
+  ∀ #a. (CompromisedParty( ca ) @ #a) ⇒ ⊥"
+*/
+simplify
+solve( LogInclusion( $Log,
+                     <<'cert', $SigningCA, d, pk>, 
+                      sign(<'cert', $SigningCA, d, pk>, ~skCA)>
+       ) @ #z )
+  case AdversarialAppend
+  solve( !KU( sign(<'cert', $SigningCA, d, pk>, ~skCA) ) @ #vk.8 )
+    case CertificateRequest_case_1
+    solve( !TLSKey( $P, $CA, d, skTLS.1 ) ▶₁ #x )
+      case TLSKeyRegister
+      by contradiction /* from formulas */
+    qed
+  next
+    case CertificateRequest_case_2
+    solve( !TLSKey( $P, $CA, $OI, skTLS.1 ) ▶₁ #x )
+      case TLSKeyRegister
+      by contradiction /* from formulas */
+    qed
+  next
+    case CertificateRequest_case_3
+    solve( !TLSKey( $P, $CA, d, skTLS.1 ) ▶₁ #x )
+      case TLSKeyShare
+      by contradiction /* from formulas */
+    qed
+  next
+    case CertificateRequest_case_4
+    solve( !TLSKey( $P, $CA, $OI, skTLS.1 ) ▶₁ #x )
+      case TLSKeyShare
+      by contradiction /* from formulas */
+    qed
+  next
+    case CertificateRequest_case_5
+    solve( !TLSKey( $P, $CA, <d, sub>, skTLS.1 ) ▶₁ #x )
+      case TLSKeyRegister
+      by contradiction /* from formulas */
+    qed
+  next
+    case CertificateRequest_case_6
+    solve( !TLSKey( $P, $CA, <$OI, sha256(pk(~rootKey))>, skTLS.1
+           ) ▶₁ #x )
+      case TLSKeyRegister
+      by contradiction /* from formulas */
+    qed
+  next
+    case CertificateRequest_case_7
+    solve( !TLSKey( $P, $CA, <d1, sub>, skTLS.1 ) ▶₁ #x )
+      case TLSKeyShare
+      by contradiction /* from formulas */
+    qed
+  next
+    case CertificateRequest_case_8
+    solve( !TLSKey( $P, $CA, <$OI, sha256(pk(~rootKey))>, skTLS.1
+           ) ▶₁ #x )
+      case TLSKeyShare
+      by contradiction /* from formulas */
+    qed
+  next
+    case FraudulentCertificate
+    by contradiction /* from formulas */
+  next
+    case c_sign
+    by solve( !KU( ~skCA ) @ #vk.9 )
+  qed
+next
+  case Submit
+  solve( !KU( sign(<'cert', $SigningCA, d, pk>, ~skCA) ) @ #vk.8 )
+    case CertificateRequest_case_1
+    solve( !TLSKey( $P, $CA, d, skTLS.1 ) ▶₁ #x )
+      case TLSKeyRegister
+      by contradiction /* from formulas */
+    qed
+  next
+    case CertificateRequest_case_2
+    solve( !TLSKey( $P, $CA, $OI, skTLS.1 ) ▶₁ #x )
+      case TLSKeyRegister
+      by contradiction /* from formulas */
+    qed
+  next
+    case CertificateRequest_case_3
+    solve( !TLSKey( $P, $CA, d, skTLS.1 ) ▶₁ #x )
+      case TLSKeyShare
+      by contradiction /* from formulas */
+    qed
+  next
+    case CertificateRequest_case_4
+    solve( !TLSKey( $P, $CA, $OI, skTLS.1 ) ▶₁ #x )
+      case TLSKeyShare
+      by contradiction /* from formulas */
+    qed
+  next
+    case CertificateRequest_case_5
+    solve( !TLSKey( $P, $CA, <d, sub>, skTLS.1 ) ▶₁ #x )
+      case TLSKeyRegister
+      by contradiction /* from formulas */
+    qed
+  next
+    case CertificateRequest_case_6
+    solve( !TLSKey( $P, $CA, <$OI, sha256(pk(~rootKey))>, skTLS.1
+           ) ▶₁ #x )
+      case TLSKeyRegister
+      by contradiction /* from formulas */
+    qed
+  next
+    case CertificateRequest_case_7
+    solve( !TLSKey( $P, $CA, <d1, sub>, skTLS.1 ) ▶₁ #x )
+      case TLSKeyShare
+      by contradiction /* from formulas */
+    qed
+  next
+    case CertificateRequest_case_8
+    solve( !TLSKey( $P, $CA, <$OI, sha256(pk(~rootKey))>, skTLS.1
+           ) ▶₁ #x )
+      case TLSKeyShare
+      by contradiction /* from formulas */
+    qed
+  next
+    case FraudulentCertificate
+    by contradiction /* from formulas */
+  next
+    case c_sign
+    by solve( !KU( ~skCA ) @ #vk.9 )
+  qed
+qed
+
+lemma AuthorityAccountability:
+  all-traces
+  "∀ p pAuth oi rk_true rk_false id oiAuth rkAuth #t1 #t2 #t3.
+    ((((IsRootPK( p, oi, rk_true ) @ #t1) ∧
+       (IsRootPK( pAuth, oiAuth, rkAuth ) @ #t2)) ∧
+      (VerifiedAuthorityEndorsement( id, oiAuth, rkAuth, oi, rk_false
+       ) @ #t3)) ∧
+     (¬(rk_true = rk_false))) ⇒
+    (∃ #a. CompromisedParty( pAuth ) @ #a)"
+/*
+guarded formula characterizing all counter-examples:
+"∃ p pAuth oi rk_true rk_false id oiAuth rkAuth #t1 #t2 #t3.
+  (IsRootPK( p, oi, rk_true ) @ #t1) ∧
+  (IsRootPK( pAuth, oiAuth, rkAuth ) @ #t2) ∧
+  (VerifiedAuthorityEndorsement( id, oiAuth, rkAuth, oi, rk_false
+   ) @ #t3)
+ ∧
+  (¬(rk_true = rk_false)) ∧
+  (∀ #a. (CompromisedParty( pAuth ) @ #a) ⇒ ⊥)"
+*/
+simplify
+solve( !KU( sign(<'end_ext', $OI.1, $OI, pk(x)>, ~rootKey.1)
+       ) @ #vk.13 )
+  case EndorseParty
+  by contradiction /* from formulas */
+next
+  case FraudulentCertificate
+  solve( !Ltk( $Party, ~rootKey ) ▶₀ #t1 )
+    case Ltk
+    by solve( !Ltk( $Party.1, ~rootKey.1 ) ▶₀ #t2 )
+  qed
+next
+  case c_sign
+  solve( !Ltk( $Party, ~rootKey ) ▶₀ #t1 )
+    case Ltk
+    solve( !Ltk( $Party.1, ~rootKey.1 ) ▶₀ #t2 )
+      case Ltk
+      solve( !KU( ~rootKey.1 ) @ #vk.25 )
+        case Reveal
+        by contradiction /* from formulas */
+      qed
+    qed
+  qed
+qed
+
+lemma PPAccountability:
+  all-traces
+  "∀ p oi rk e1 assetKey id #t1 #t2 #t3.
+    ((((IsRootPK( p, oi, rk ) @ #t1) ∧
+       (VerifiedRootEndorsement( id, oi, rk ) @ #t2)) ∧
+      (VerifiedEndorsed( id, oi, e1, assetKey ) @ #t3)) ∧
+     (¬(∃ e2 #x. IsAsset( p, e2, assetKey ) @ #x))) ⇒
+    (∃ #a. CompromisedParty( p ) @ #a)"
+/*
+guarded formula characterizing all counter-examples:
+"∃ p oi rk e1 assetKey id #t1 #t2 #t3.
+  (IsRootPK( p, oi, rk ) @ #t1) ∧
+  (VerifiedRootEndorsement( id, oi, rk ) @ #t2) ∧
+  (VerifiedEndorsed( id, oi, e1, assetKey ) @ #t3)
+ ∧
+  (∀ e2 #x. (IsAsset( p, e2, assetKey ) @ #x) ⇒ ⊥) ∧
+  (∀ #a. (CompromisedParty( p ) @ #a) ⇒ ⊥)"
+*/
+simplify
+solve( !KU( sign(<'end_int', $OI, pk(x)>, ~rootKey) ) @ #vk.15 )
+  case EndorseAsset_case_01
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_02
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_03
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_04
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_05
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_06
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_07
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_08
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_09
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_10
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_11
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_12
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_13
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_14
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_15
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_16
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_17
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_18
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_19
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_20
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_21
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_22
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_23
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_24
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_25
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_26
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_27
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_28
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_29
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_30
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_31
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_32
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_33
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_34
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_35
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_36
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_37
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_38
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_39
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_40
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_41
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_42
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_43
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_44
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_45
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_46
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_47
+  by contradiction /* from formulas */
+next
+  case EndorseAsset_case_48
+  by contradiction /* from formulas */
+next
+  case FraudulentCertificate
+  by solve( !Ltk( $Party, ~rootKey ) ▶₀ #t1 )
+next
+  case c_sign
+  solve( !KU( ~rootKey ) @ #vk.16 )
+    case Reveal
+    solve( !Ltk( $Party, ~rootKey ) ▶₀ #t1 )
+      case Ltk
+      by contradiction /* from formulas */
+    qed
+  next
+    case RevealAsset
+    by solve( !Ltk( $Party, ~rootKey ) ▶₀ #t1 )
+  next
+    case TLSKeyLeak_case_1
+    by solve( !Ltk( $Party, ~rootKey ) ▶₀ #t1 )
+  next
+    case TLSKeyLeak_case_2
+    by solve( !Ltk( $Party, ~rootKey ) ▶₀ #t1 )
+  next
+    case TLSKeyLeak_case_3
+    by solve( !Ltk( $Party, ~rootKey ) ▶₀ #t1 )
+  next
+    case TLSKeyLeak_case_4
+    by solve( !Ltk( $Party, ~rootKey ) ▶₀ #t1 )
+  next
+    case TLSKeyLeak_case_5
+    by solve( !Ltk( $Party, ~rootKey ) ▶₀ #t1 )
+  next
+    case TLSKeyLeak_case_6
+    by solve( !Ltk( $Party, ~rootKey ) ▶₀ #t1 )
+  next
+    case TLSKeyLeak_case_7
+    by solve( !Ltk( $Party, ~rootKey ) ▶₀ #t1 )
+  next
+    case TLSKeyLeak_case_8
+    by solve( !Ltk( $Party, ~rootKey ) ▶₀ #t1 )
+  next
+    case fresh
+    by solve( !Ltk( $Party, ~rootKey ) ▶₀ #t1 )
+  qed
+qed
+
+lemma RootKeyUse:
+  all-traces
+  "∀ oi rk #t.
+    (UsedRootKey( oi, rk ) @ #t) ⇒
+    (∃ ca caSk log certBody1 certBody2 oi.1 tlsPk #x #y #z.
+      ((((CASk( ca, caSk ) @ #x) ∧
+         (certBody1 = <'cert', ca, oi.1, tlsPk>)) ∧
+        (certBody2 = <'cert', ca, <oi.1, sha256(rk)>, tlsPk>)) ∧
+       (LogInclusion( log, <certBody1, sign(certBody1, caSk)> ) @ #y)) ∧
+      (LogInclusion( log, <certBody2, sign(certBody2, caSk)> ) @ #z))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ oi rk #t.
+  (UsedRootKey( oi, rk ) @ #t)
+ ∧
+  ∀ ca caSk log certBody1 certBody2 oi.1 tlsPk #x #y #z.
+   (CASk( ca, caSk ) @ #x) ∧
+   (certBody1 = <'cert', ca, oi.1, tlsPk>) ∧
+   (certBody2 = <'cert', ca, <oi.1, sha256(rk)>, tlsPk>) ∧
+   (LogInclusion( log, <certBody1, sign(certBody1, caSk)> ) @ #y) ∧
+   (LogInclusion( log, <certBody2, sign(certBody2, caSk)> ) @ #z)
+  ⇒
+   ⊥"
+*/
+simplify
+solve( UsedRootKey( oi, rk ) @ #t )
+  case ReceiveAuthorityEndorsement
+  solve( VerifyAuthorityEndorsements( ~id, oi, pk(x), $E ) ▶₀ #t )
+    case ReceiveAuthorityEndorsement_case_1
+    solve( RootKeyVerified( oi.1, pk(x.1) ) ▶₃ #t )
+      case RootKeyLearn_case_1
+      by contradiction /* from formulas */
+    next
+      case RootKeyLearn_case_2
+      by contradiction /* from formulas */
+    next
+      case RootKeyLearn_case_3
+      by contradiction /* from formulas */
+    next
+      case RootKeyLearn_case_4
+      by contradiction /* from formulas */
+    qed
+  next
+    case ReceiveAuthorityEndorsement_case_2
+    solve( RootKeyVerified( oi.1, pk(x.1) ) ▶₃ #t )
+      case RootKeyLearn_case_1
+      by contradiction /* from formulas */
+    next
+      case RootKeyLearn_case_2
+      by contradiction /* from formulas */
+    next
+      case RootKeyLearn_case_3
+      by contradiction /* from formulas */
+    next
+      case RootKeyLearn_case_4
+      by contradiction /* from formulas */
+    qed
+  next
+    case ReceiveAuthorityEndorsement_case_3
+    solve( RootKeyVerified( oi.1, pk(x.1) ) ▶₃ #t )
+      case RootKeyLearn_case_1
+      by contradiction /* from formulas */
+    next
+      case RootKeyLearn_case_2
+      by contradiction /* from formulas */
+    next
+      case RootKeyLearn_case_3
+      by contradiction /* from formulas */
+    next
+      case RootKeyLearn_case_4
+      by contradiction /* from formulas */
+    qed
+  next
+    case ReceiveAuthorityEndorsement_case_4
+    solve( RootKeyVerified( oi.1, pk(x.1) ) ▶₃ #t )
+      case RootKeyLearn_case_1
+      by contradiction /* from formulas */
+    next
+      case RootKeyLearn_case_2
+      by contradiction /* from formulas */
+    next
+      case RootKeyLearn_case_3
+      by contradiction /* from formulas */
+    next
+      case RootKeyLearn_case_4
+      by contradiction /* from formulas */
+    qed
+  next
+    case ReceiveEmblem_case_1
+    solve( RootKeyVerified( oi.1, pk(x.1) ) ▶₃ #t )
+      case RootKeyLearn_case_1
+      by contradiction /* from formulas */
+    next
+      case RootKeyLearn_case_2
+      by contradiction /* from formulas */
+    next
+      case RootKeyLearn_case_3
+      by contradiction /* from formulas */
+    next
+      case RootKeyLearn_case_4
+      by contradiction /* from formulas */
+    qed
+  next
+    case ReceiveEmblem_case_2
+    solve( RootKeyVerified( oi.1, pk(x.1) ) ▶₃ #t )
+      case RootKeyLearn_case_1
+      by contradiction /* from formulas */
+    next
+      case RootKeyLearn_case_2
+      by contradiction /* from formulas */
+    next
+      case RootKeyLearn_case_3
+      by contradiction /* from formulas */
+    next
+      case RootKeyLearn_case_4
+      by contradiction /* from formulas */
+    qed
+  next
+    case ReceiveEmblem_case_3
+    solve( RootKeyVerified( oi.1, pk(x.1) ) ▶₃ #t )
+      case RootKeyLearn_case_1
+      by contradiction /* from formulas */
+    next
+      case RootKeyLearn_case_2
+      by contradiction /* from formulas */
+    next
+      case RootKeyLearn_case_3
+      by contradiction /* from formulas */
+    next
+      case RootKeyLearn_case_4
+      by contradiction /* from formulas */
+    qed
+  next
+    case ReceiveEmblem_case_4
+    solve( RootKeyVerified( oi.1, pk(x.1) ) ▶₃ #t )
+      case RootKeyLearn_case_1
+      by contradiction /* from formulas */
+    next
+      case RootKeyLearn_case_2
+      by contradiction /* from formulas */
+    next
+      case RootKeyLearn_case_3
+      by contradiction /* from formulas */
+    next
+      case RootKeyLearn_case_4
+      by contradiction /* from formulas */
+    qed
+  qed
+next
+  case ReceiveEmblem
+  solve( RootKeyVerified( oi, pk(x.1) ) ▶₃ #t )
+    case RootKeyLearn_case_1
+    by contradiction /* from formulas */
+  next
+    case RootKeyLearn_case_2
+    by contradiction /* from formulas */
+  next
+    case RootKeyLearn_case_3
+    by contradiction /* from formulas */
+  next
+    case RootKeyLearn_case_4
+    by contradiction /* from formulas */
+  qed
+qed
+
+restriction Eq:
+  "∀ a b #i. (Eq( a, b ) @ #i) ⇒ (a = b)"
+  // safety formula
+
+restriction Neq:
+  "∀ a b #i. (Neq( a, b ) @ #i) ⇒ (¬(a = b))"
+  // safety formula
+
+restriction OnlyOnce:
+  "∀ #i #j a.
+    ((OnlyOnce( a ) @ #i) ∧ (OnlyOnce( a ) @ #j)) ⇒ (#i = #j)"
+  // safety formula
+
+/* All well-formedness checks were successful. */
+
+end
