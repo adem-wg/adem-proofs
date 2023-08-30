@@ -66,12 +66,14 @@ rule FraudulentCertificate:
 
 rule TLSKeyRegister:
   [ !DomainOwner($A, d), !CA($CA, skCA), Fr(~skUser) ]
-  --[ OnlyOnce(<'tls_key', d>) ]->
+  --[ OnlyOnce(<'tls_key', d>)
+    , TLSKeyGen(~skUser) ]->
   [ !TLSKey($A, $CA, d, ~skUser), Out(pk(~skUser)) ]
 
 rule TLSKeyShare:
   [ !TLSKey($A, $CA, d1, ~skUser), !DomainOwner($A, d2) ]
-  --[ OnlyOnce(<'tls_key', d2>)
+  --[ TLSKeyShare(~skUser)
+    , OnlyOnce(<'tls_key', d2>)
     , Eq(d1, fst(d2)) ]->
   [ !TLSKey($A, $CA, d2, ~skUser) ]
 
@@ -80,6 +82,19 @@ rule TLSKeyLeak:
   --[ CompromisedTLSKey(~skUser)
     , SomeCompromise() ]->
   [ Out(~skUser) ]
+
+lemma TLSKeyShareRecursion[use_induction,reuse]:
+  "All k #t1. TLSKeyShare(k) @ #t1 ==> Ex #t2. TLSKeyGen(k) @ #t2"
+
+lemma TLSKeyLeakRecursion[use_induction,reuse]:
+  "All k #t. CompromisedTLSKey(k) @ #t ==> Ex #x. TLSKeyGen(k) @ #x"
+
+lemma WrongCAKeyUseImpliesCompromise[reuse]:
+  "All tag m ca caSk #t1 #t2.
+        ( CASk(ca, caSk) @ #t1
+        & !KU(<<tag, m>, sign(<'tag', m>, caSk)>) @ #t2
+        & not (tag = 'cert'))
+    ==> (Ex #x. CompromisedCA(ca) @ #x & CompromisedParty(ca) @ #x)"
 
 rule CertificateRequest:
   [ !DomainOwner($A, d), !TLSKey($A, $CA, d, ~skTLS), !CA($CA, ~skCA) ]
