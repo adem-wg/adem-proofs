@@ -10,7 +10,7 @@ rule DomainRegister:
   [ DomainRegister($A, d) ]
   --[ OnlyOnce(<'domain_register', d>)
     , NoTuple(d) ]->
-  [ !DomainOwner($A, d), Out(d) ]
+  [ !DomainOwner($A, d) ]
 
 restriction NoTuple:
   "All m #t. NoTuple(m) @ #t ==> (not Ex l r. m = <l, r>)"
@@ -18,7 +18,7 @@ restriction NoTuple:
 rule SubdomainRegister:
   [ DomainRegister($A, <d, sub>), !DomainOwner($A, d) ]
   --[ OnlyOnce(<'domain_register', <d, sub>>) ]->
-  [ !DomainOwner($A, <d, sub>), Out(<d, sub>) ]
+  [ !DomainOwner($A, <d, sub>) ]
 
 rule DomainCompromise:
   [ !DomainOwner($A, d) ]
@@ -59,7 +59,7 @@ rule FraudulentCertificate:
   --[ SigningOracleCA($CA, m)
     , CompromisedCA($CA)
     , CompromisedParty($CA) ]->
-  [ Out(<m, sign(m, ~skCA)>) ]
+  [ Out(sign(m, ~skCA)) ]
 
 rule TLSKeyRegister:
   [ !DomainOwner($A, d), !CA($CA, skCA), Fr(~skUser) ]
@@ -78,12 +78,9 @@ rule TLSKeyLeak:
   [ Out(~skUser) ]
 
 rule CertificateRequest:
-  let body = <'cert', $CA, d, pk(~skTLS)>
-      certificate = <body, sign(body, ~skCA)>
-  in
   [ !DomainOwner($A, d), !TLSKey($A, $CA, d, ~skTLS), !CA($CA, ~skCA) ]
   --[ OnlyOnce(<'certificate', d>) ]->
-  [  Out(certificate) ]
+  [  Out(sign(<'cert', $CA, d, pk(~skTLS)>, ~skCA)) ]
 
 // TLS
 functions: tlsClientMsg/4, tlsServerMsg/4, tlsClientReceive/2,
@@ -123,18 +120,16 @@ rule RootSetupDomains:
   --[ OnlyOnce(<'root', $Party>)
     , OI($Party, $OI) ]->
   [ DomainRegister($Party, $OI), DomainRegister($Party, rootD)
-  , RootDomains($Party, ~rootKey, $OI, rootD) ]
+  , !RootDomains($Party, ~rootKey, $OI, rootD) ]
 
 rule RootSetupCertificates:
   let bodyOiCert = <'cert', $CA, oi, pk(tlsSk)>
       bodyRootCert = <'cert', $CA, rootD, pk(tlsSk)>
   in
-  [ !CA($CA, skCA), RootDomains($P, ~rootKey, oi, rootD)
+  [ !CA($CA, skCA), !RootDomains($P, ~rootKey, oi, rootD)
   , !TLSKey($P, $CA, oi, tlsSk), !TLSKey($P, $CA, rootD, tlsSk)
-  , !MHTLeaf($Log, <bodyOiCert, sigOiCert>), !MHTLeaf($Log, <bodyRootCert, sigRootCert>)
-  , In(<bodyOiCert, sigOiCert>)
-  , In(<bodyRootCert, sigRootCert>) ]
-  --[ IsRootPK($P, oi, pk(~rootKey))
+  , !MHTLeaf($Log, <bodyOiCert, sigOiCert>), !MHTLeaf($Log, <bodyRootCert, sigRootCert>) ]
+  --[ OnlyOnce(<'root_setup', oi>)
     , Eq(verify(sigOiCert, bodyOiCert, pk(skCA)), true)
     , Eq(verify(sigRootCert, bodyRootCert, pk(skCA)), true) ]->
   [ !RootSetup($P, ~rootKey, oi, rootD) ]
@@ -168,30 +163,21 @@ rule Asset:
   [ !AssetOf($P, $E, assetKey) ]
 
 rule EndorseAsset:
-  let body = <'end_int', oi, pk(assetKey)>
-      endorsement = <pk(rootKey), body, sign(body, rootKey)>
-  in
   [ !AssetOf($P, $E, assetKey)
   , !RootSetup($P, rootKey, oi, rootD) ]
   --[ OnlyOnce(<'endorsed', $E>) ]->
-  [ Out(endorsement) ]
+  [ Out(sign(<'end_int', oi, pk(assetKey)>, rootKey)) ]
 
 rule EndorseParty:
-  let body = <'end_ext', oiS, oiT, pk(rootKeyT)>
-      endorsement = <pk(rootKeyS), body, sign(body, rootKeyS)>
-  in
-  [ !RootSetup($Endorsed, rootKeyT, oiT, rootDT)
-  , !RootSetup($Endorser, rootKeyS, oiS, rootDS) ]
+  [ !RootDomains($Endorsed, rootKeyT, oiT, rootDT)
+  , !RootDomains($Endorser, rootKeyS, oiS, rootDS) ]
   -->
-  [ Out(endorsement) ]
+  [ Out(sign(<'end_ext', oiS, oiT, pk(rootKeyT)>, rootKeyS)) ]
 
 rule SendEmblem:
-  let body = <'emblem', $E, oi>
-      emblem = <pk(assetKey), body, sign(body, assetKey)>
-  in
   [ !AssetOf($P, $E, assetKey), !RootSetup($P, rootKey, oi, rootD) ]
   -->
-  [ Out(emblem) ]
+  [ Out(sign(<'emblem', $E, oi>, assetKey)) ]
 
 rule ReceiveEmblem:
   let emblemBody = <'emblem', $E, oi>
