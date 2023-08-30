@@ -44,7 +44,8 @@ rule Submit:
 rule AdversarialAppend:
   [ In(msg) ]
   --[ LogInclusion($Log, msg)
-    , CompromisedParty($Log) ]->
+    , CompromisedParty($Log)
+    , SomeCompromise() ]->
   [ !MHTLeaf($Log, msg) ]
 
 // Certificate authorities
@@ -58,7 +59,8 @@ rule FraudulentCertificate:
   [ !CA($CA, ~skCA), In(m) ]
   --[ SigningOracleCA($CA, m)
     , CompromisedCA($CA)
-    , CompromisedParty($CA) ]->
+    , CompromisedParty($CA)
+    , SomeCompromise() ]->
   [ Out(sign(m, ~skCA)) ]
 
 rule TLSKeyRegister:
@@ -74,7 +76,8 @@ rule TLSKeyShare:
 
 rule TLSKeyLeak:
   [ !TLSKey($A, $CA, d, ~skUser) ]
-  --[ CompromisedTLSKey(~skUser) ]->
+  --[ CompromisedTLSKey(~skUser)
+    , SomeCompromise() ]->
   [ Out(~skUser) ]
 
 rule CertificateRequest:
@@ -104,12 +107,14 @@ rule AssetKey:
 rule Reveal:
   [ !Ltk($A, ~ltk) ]
   --[ CompromisedADEMParty($A, pk(~ltk))
-    , CompromisedParty($A) ]->
+    , CompromisedParty($A)
+    , SomeCompromise() ]->
   [ Out(~ltk) ]
 
 rule RevealAsset:
   [ !LtkAsset($A, ~ltk) ]
-  --[ CompromisedAssetKey($A, pk(~ltk)) ]->
+  --[ CompromisedAssetKey($A, pk(~ltk))
+    , SomeCompromise() ]->
   [ Out(~ltk) ]
 
 functions: sha256/1
@@ -151,9 +156,7 @@ rule RootKeyLearn:
 lemma CanObtainRootKey:
   exists-trace
   " (Ex oi rootKey #t. VerifiedRootKey(oi, rootKey) @ #t)
-  & (not Ex p #x. CompromisedParty(p) @ #x)
-  & (not Ex sk #x. CompromisedTLSKey(sk) @ #x)
-  & (not Ex ca m #x. SigningOracleCA(ca, m) @ #x)"
+  & (not Ex #x. SomeCompromise() @ #x)"
 
 // ADEM endorsements and emblem distribution
 rule Asset:
@@ -164,7 +167,7 @@ rule Asset:
 
 rule EndorseAsset:
   [ !AssetOf($P, $E, assetKey)
-  , !RootSetup($P, rootKey, oi, rootD) ]
+  , !RootDomains($P, rootKey, oi, rootD) ]
   --[ OnlyOnce(<'endorsed', $E>) ]->
   [ Out(sign(<'end_int', oi, pk(assetKey)>, rootKey)) ]
 
@@ -175,7 +178,7 @@ rule EndorseParty:
   [ Out(sign(<'end_ext', oiS, oiT, pk(rootKeyT)>, rootKeyS)) ]
 
 rule SendEmblem:
-  [ !AssetOf($P, $E, assetKey), !RootSetup($P, rootKey, oi, rootD) ]
+  [ !AssetOf($P, $E, assetKey), !RootDomains($P, rootKey, oi, rootD) ]
   -->
   [ Out(sign(<'emblem', $E, oi>, assetKey)) ]
 
@@ -211,20 +214,21 @@ rule ReceiveAuthorityEndorsement:
   , RootKeyVerified(auth, authPk) ]
   --[ Neq(auth, oi)
     , Eq(verify(endSignature, endBody, authPk), true)
-    , VerifiedAuthorityEndorsement(~id, auth, authPk, oi, rootKey) ]->
+    , VerifiedAuthorityEndorsement(~id, auth, authPk, oi, rootKey)
+    , UsedRootKey(auth, authPk) ]->
   [ VerifyAuthorityEndorsements(~id, oi, rootKey, $E) ]
 
 lemma CanReceiveEmblem:
   exists-trace
-  " (Ex id oi asset assetKey rootKey p1 p2 p1Pk p2Pk #a #b #c #d.
+  " (Ex id oi asset assetKey rootKey authOi1 authOi2 authPk1 authPk2 p1 p2 #a #b #c #d #e #f.
       VerifiedEndorsed(id, oi, asset, assetKey) @ #a
     & VerifiedRootEndorsement(id, oi, rootKey) @ #b
-    & VerifiedAuthorityEndorsement(id, p1, p1Pk, oi, rootKey) @ #c
-    & VerifiedAuthorityEndorsement(id, p2, p2Pk, oi, rootKey) @ #d
-    & not (p1 = p2))
-  & (not Ex p #x. CompromisedParty(p) @ #x)
-  & (not Ex d #x. CompromisedTLSKey(d) @ #x)
-  & (not Ex ca m #x. SigningOracleCA(ca, m) @ #x)"
+    & VerifiedAuthorityEndorsement(id, authOi1, authPk1, oi, rootKey) @ #c
+    & VerifiedAuthorityEndorsement(id, authOi2, authPk2, oi, rootKey) @ #d
+    & IsRootPK(p1, authOi1, authPk1) @ #e
+    & IsRootPK(p2, authOi2, authPk2) @ #f
+    & not (authOi1 = authOi2))
+  & (not Ex #x. SomeCompromise() @ #x)"
 
 lemma VerifiedAuthorityOrigin[reuse,use_induction]:
   "All loop auth authKey oi rootKey #t1. VerifiedAuthorityEndorsement(loop, auth, authKey, oi, rootKey) @ #t1
