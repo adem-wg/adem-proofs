@@ -138,7 +138,8 @@ rule RootSetupDomains:
   let rootD = <$OI, sha256(pk(~rootKey))>
   in
   [ !Ltk($Party, ~rootKey) ]
-  --[ OnlyOnce(<'root', $Party>)
+  --[ OnlyOnce(<'root', $OI>)
+    , IsRootPK($Party, $OI, pk(~rootKey))
     , OI($Party, $OI) ]->
   [ DomainRegister($Party, $OI), DomainRegister($Party, rootD)
   , !RootDomains($Party, ~rootKey, $OI, rootD) ]
@@ -210,6 +211,7 @@ rule ReceiveEmblem:
   ]
   --[ VerifiedEndorsed(~id, oi, $E, epk)
     , VerifiedRootEndorsement(~id, oi, rootKey)
+    , UsedRootKey(oi, rootKey)
     , Eq(verify(emblemSignature, emblemBody, epk), true)
     , Eq(verify(signature, body, rootKey), true) ]->
   [ VerifyAuthorityEndorsements(~id, oi, rootKey, $E) ]
@@ -303,33 +305,15 @@ lemma PPAccountability:
         & (not Ex e2 #x. IsAsset(p, e2, assetKey) @ #x))
     ==> (Ex #a. CompromisedParty(p) @ #a)"
 
-predicates:
-      ExBindingCert(oi, rootPk)
-  <=> Ex ca log pk sig1 sig2 #t1 #t2.
-          LogInclusion(log, <<'cert', ca, oi, pk>, sig1>) @ #t1
-        & LogInclusion(log, <<'cert', ca, <oi, sha256(rootPk)>, pk>, sig2>) @ #t2,
-      ExBindingCertCA(ca, oi, rootPk)
-  <=> Ex ca log pk sig1 sig2 #t1 #t2.
-          LogInclusion(log, <<'cert', ca, oi, pk>, sig1>) @ #t1
-        & LogInclusion(log, <<'cert', ca, <oi, sha256(rootPk)>, pk>, sig2>) @ #t2
-
-predicates:
-      ExFraudLogged(oi, rootPk, ca, skCA)
-  <=> Ex log pk #t1 #t2.
-          LogInclusion(log, <<'cert', ca, oi, pk>, sign(<'cert', ca, oi, pk>, skCA)>) @ #t1
-        & LogInclusion(log, <<'cert', ca, <oi, sha256(rootPk)>, pk>, sign(<'cert', ca, <oi, sha256(rootPk)>, pk>, skCA)>) @ #t2
-
-lemma AccountabilityCompleteness:
-  "All id oi asset assetKey rootKey #t1 #t2.
-        ( VerifiedEndorsed(id, oi, asset, assetKey) @ #t1
-        & VerifiedRootEndorsement(id, oi, rootKey) @ #t2
-        & (not Ex pp #x #y. OI(pp, oi) @ #x & IsAsset(pp, asset, assetKey) @ #y)
-        & (not Ex otherA #x. CompromisedAssetKey(otherA, assetKey) @ #x))
-    ==> ( (Ex p #x #y. OI(p, oi) @ #x & CompromisedADEMParty(p, rootKey) @ #y & ExBindingCert(oi, rootKey))
-        | (Ex ca #x. CompromisedCA(ca) @ #x & ExBindingCertCA(ca, oi, rootKey))
-        | ( (Ex authPk authOi endorsedKey #x1. VerifiedAuthorityEndorsement(id, authPk, authOi, oi, endorsedKey) @ #x1))
-        & ( (Ex p #x #y. OI(p, authOi) @ #x & CompromisedADEMParty(p, authPk) @ #y & ExBindingCert(authOi, authPk))
-            | (Ex ca #x. CompromisedCA(ca) @ #x & ExBindingCertCA(ca, authOi, authPk))))"
+lemma RootKeyUse:
+  "All oi rk #t.
+        UsedRootKey(oi, rk) @ #t
+    ==> (Ex ca caSk log certBody1 certBody2 oi tlsPk #x #y #z.
+            CASk(ca, caSk) @ #x
+          & certBody1 = <'cert', ca, oi, tlsPk>
+          & certBody2 = <'cert', ca, <oi, sha256(rk)>, tlsPk>
+          & LogInclusion(log, <certBody1, sign(certBody1, caSk)>) @ #y
+          & LogInclusion(log, <certBody2, sign(certBody2, caSk)>) @ #z)"
 
 restriction Eq:
     "All a b #i. Eq(a, b) @ #i ==> a = b"
