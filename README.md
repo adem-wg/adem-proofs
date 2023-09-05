@@ -1,6 +1,7 @@
 # ADEM Proofs
 
 This repository contains formal proofs of the ADEM design, encoded for the [Tamarin model checker](https://tamarin-prover.github.io/).
+We were using Tamarin version 1.8.0 to find and check proofs.
 
 We provide proofs for all lemmas (i.e., our model's security properties) in the directory `/proofs`.
 Proofs can checked by running:
