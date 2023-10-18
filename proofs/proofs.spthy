@@ -16,8 +16,6 @@ equations:
 
 
 
-heuristic: o "./oracle.py"
-
 /*
 looping facts with injective instances:
   VerifyAuthorityEndorsements/4
