@@ -17,11 +17,9 @@ To find a proof for a lemma automated, e.g., `AuthenticEmblem`, use the command 
 tamarin-prover --prove=AuthenticEmblem adem.spthy
 ```
 
-Note that lemma `CanReceiveEmblem` must be proven manually.
+You can prove all lemmas but `CanReceiveEmblem` yourself by executing the `batch-run-all.sh` script.
+The lemma `CanReceiveEmblem` must be proven manually.
 See the comment below.
-
-The `*-run.spthy` scripts provided within this repository are targeted towards a particular development environment, yet, you still may find them useful.
-If a script does not work for you, you may need to replace `tamarin-prover-release` with `tamarin-prover` in the scripts.
 
 ## Note on Executability Lemma
 
