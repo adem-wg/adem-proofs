@@ -1,4 +1,4 @@
-tamarin-prover-release +RTS -N10 -RTS --output=proofs.spthy \
+tamarin-prover --derivcheck-timeout=0 --output=proofs.spthy \
   --prove=TLSKeyShareRecursion \
   --prove=TLSKeyLeakRecursion \
   --prove=WrongCAKeyUseImpliesCompromise \
@@ -10,4 +10,4 @@ tamarin-prover-release +RTS -N10 -RTS --output=proofs.spthy \
   --prove=AuthorityAccountability \
   --prove=PPAccountability \
   --prove=RootKeyUse \
-  adem.spthy > proofs.log 2>&1 &
+  adem.spthy
