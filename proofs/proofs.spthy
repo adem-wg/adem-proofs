@@ -21,8 +21,6 @@ looping facts with injective instances:
   VerifyAuthorityEndorsements/4
 */
 
-
-
 rule (modulo E) DomainRegister:
    [ DomainRegister( $A, d ) ]
   --[ OnlyOnce( <'domain_register', d> ), NoTuple( d ) ]->
@@ -86,7 +84,7 @@ rule (modulo E) Submit:
        skCA  = skCA.20
        z     = verify(certSig.17, <'cert', $CA.15, d.18, pk.19>,
                       pk(skCA.20))
-    
+
     2. $CA   = $CA.15
        certSig
              = sign(<'cert', $CA.15, d.18, pk.19>, skCA.20)
@@ -149,7 +147,7 @@ rule (modulo E) TLSKeyShare:
     variants (modulo AC)
     1. d2    = d2.9
        z     = fst(d2.9)
-    
+
     2. d2    = <z.10, x.12>
        z     = z.10
     // loop breaker: [0]
@@ -172,7 +170,7 @@ guarded formula characterizing all counter-examples:
 */
 induction
   case empty_trace
-  by contradiction /* from formulas */
+  by contradiction
 next
   case non_empty_trace
   simplify
@@ -183,42 +181,42 @@ next
       case split_case_1
       solve( !TLSKey( $A, $CA, d1, ~skUser ) ▶₀ #t1 )
         case TLSKeyRegister_case_1
-        by contradiction /* from formulas */
+        by contradiction
       next
         case TLSKeyRegister_case_2
-        by contradiction /* from formulas */
+        by contradiction
       next
         case TLSKeyRegister_case_3
-        by contradiction /* from formulas */
+        by contradiction
       next
         case TLSKeyRegister_case_4
-        by contradiction /* from formulas */
+        by contradiction
       next
         case TLSKeyShare_case_1
-        by contradiction /* from formulas */
+        by contradiction
       next
         case TLSKeyShare_case_2
-        by contradiction /* from formulas */
+        by contradiction
       next
         case TLSKeyShare_case_3
-        by contradiction /* from formulas */
+        by contradiction
       next
         case TLSKeyShare_case_4
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case split_case_2
       solve( !TLSKey( $A, $CA, fst(d2), ~skUser ) ▶₀ #t1 )
         case TLSKeyRegister
-        by contradiction /* from formulas */
+        by contradiction
       next
         case TLSKeyShare
-        by contradiction /* from formulas */
+        by contradiction
       qed
     qed
   next
     case case_2
-    by contradiction /* from formulas */
+    by contradiction
   qed
 qed
 
@@ -233,7 +231,7 @@ guarded formula characterizing all counter-examples:
 */
 induction
   case empty_trace
-  by contradiction /* from formulas */
+  by contradiction
 next
   case non_empty_trace
   simplify
@@ -242,32 +240,32 @@ next
     case case_1
     solve( !TLSKey( $A, $CA, d, ~skUser ) ▶₀ #t )
       case TLSKeyRegister_case_1
-      by contradiction /* from formulas */
+      by contradiction
     next
       case TLSKeyRegister_case_2
-      by contradiction /* from formulas */
+      by contradiction
     next
       case TLSKeyRegister_case_3
-      by contradiction /* from formulas */
+      by contradiction
     next
       case TLSKeyRegister_case_4
-      by contradiction /* from formulas */
+      by contradiction
     next
       case TLSKeyShare_case_1
-      by contradiction /* from formulas */
+      by contradiction
     next
       case TLSKeyShare_case_2
-      by contradiction /* from formulas */
+      by contradiction
     next
       case TLSKeyShare_case_3
-      by contradiction /* from formulas */
+      by contradiction
     next
       case TLSKeyShare_case_4
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case case_2
-    by contradiction /* from formulas */
+    by contradiction
   qed
 qed
 
@@ -291,7 +289,7 @@ guarded formula characterizing all counter-examples:
 simplify
 solve( !KU( sign(<'tag', m>, ~skCA) ) @ #vk.3 )
   case FraudulentCertificate
-  by contradiction /* from formulas */
+  by contradiction
 next
   case c_sign
   by solve( !KU( ~skCA ) @ #vk.5 )
@@ -394,7 +392,7 @@ rule (modulo E) RootSetupCertificates:
                       pk(skCA.33))
        z.1   = verify(sigRootCert.32,
                       <'cert', $CA.25, rootD.30, pk(tlsSk.34)>, pk(skCA.33))
-    
+
     2. $CA   = $CA.25
        oi    = oi.29
        rootD = rootD.30
@@ -407,7 +405,7 @@ rule (modulo E) RootSetupCertificates:
        z     = verify(sigOiCert.31, <'cert', $CA.25, oi.29, pk(tlsSk.34)>,
                       pk(skCA.33))
        z.1   = true
-    
+
     3. $CA   = $CA.25
        oi    = oi.29
        rootD = rootD.30
@@ -420,7 +418,7 @@ rule (modulo E) RootSetupCertificates:
        z     = true
        z.1   = verify(sigRootCert.32,
                       <'cert', $CA.25, rootD.30, pk(tlsSk.34)>, pk(skCA.33))
-    
+
     4. $CA   = $CA.25
        oi    = oi.29
        rootD = rootD.30
@@ -437,49 +435,46 @@ rule (modulo E) RootSetupCertificates:
 rule (modulo E) RootKeyLearn:
    [
    !CA( $CA, skCA ), !Log( $Log ),
-   !MHTLeaf( $Log, <<'cert', $CA, oi, pk(tlsSk)>, certOiSig> ),
+   !MHTLeaf( $Log, <<'cert', $CA, oi, tlsPk>, certOiSig> ),
    !MHTLeaf( $Log,
-             <<'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>, certRootDSig>
+             <<'cert', $CA, <oi, rootKeyHash>, tlsPk>, certRootDSig>
    )
    ]
   --[
-  Eq( verify(certOiSig, <'cert', $CA, oi, pk(tlsSk)>, pk(skCA)), true
-  ),
-  Eq( verify(certRootDSig,
-             <'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>, pk(skCA)),
+  Eq( verify(certOiSig, <'cert', $CA, oi, tlsPk>, pk(skCA)), true ),
+  Eq( verify(certRootDSig, <'cert', $CA, <oi, rootKeyHash>, tlsPk>,
+             pk(skCA)),
       true
   ),
-  VerifiedRootKey( oi, rootKey ),
-  RootCertVerified( <
-                     <'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>, certRootDSig>
+  VerifiedRootKey( oi, rootKeyHash ),
+  RootCertVerified( <<'cert', $CA, <oi, rootKeyHash>, tlsPk>,
+                     certRootDSig>
   ),
-  LogInclusionVerified( $Log, <'cert', $CA, oi, pk(tlsSk)> ),
-  LogInclusionVerified( $Log,
-                        <'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>
+  LogInclusionVerified( $Log, <'cert', $CA, oi, tlsPk> ),
+  LogInclusionVerified( $Log, <'cert', $CA, <oi, rootKeyHash>, tlsPk>
   )
   ]->
-   [ RootKeyVerified( oi, rootKey ) ]
+   [ RootKeyVerified( oi, rootKeyHash ) ]
 
   /*
   rule (modulo AC) RootKeyLearn:
      [
      !CA( $CA, skCA ), !Log( $Log ),
-     !MHTLeaf( $Log, <<'cert', $CA, oi, pk(tlsSk)>, certOiSig> ),
+     !MHTLeaf( $Log, <<'cert', $CA, oi, tlsPk>, certOiSig> ),
      !MHTLeaf( $Log,
-               <<'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>, certRootDSig>
+               <<'cert', $CA, <oi, rootKeyHash>, tlsPk>, certRootDSig>
      )
      ]
     --[
-    Eq( z, true ), Eq( z.1, true ), VerifiedRootKey( oi, rootKey ),
-    RootCertVerified( <
-                       <'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>, certRootDSig>
+    Eq( z, true ), Eq( z.1, true ), VerifiedRootKey( oi, rootKeyHash ),
+    RootCertVerified( <<'cert', $CA, <oi, rootKeyHash>, tlsPk>,
+                       certRootDSig>
     ),
-    LogInclusionVerified( $Log, <'cert', $CA, oi, pk(tlsSk)> ),
-    LogInclusionVerified( $Log,
-                          <'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>
+    LogInclusionVerified( $Log, <'cert', $CA, oi, tlsPk> ),
+    LogInclusionVerified( $Log, <'cert', $CA, <oi, rootKeyHash>, tlsPk>
     )
     ]->
-     [ RootKeyVerified( oi, rootKey ) ]
+     [ RootKeyVerified( oi, rootKeyHash ) ]
     variants (modulo AC)
     1. $CA   = $CA.13
        certOiSig
@@ -487,68 +482,66 @@ rule (modulo E) RootKeyLearn:
        certRootDSig
              = certRootDSig.16
        oi    = oi.17
-       rootKey
-             = rootKey.18
+       rootKeyHash
+             = rootKeyHash.18
        skCA  = skCA.19
-       tlsSk = tlsSk.20
-       z     = verify(certOiSig.15, <'cert', $CA.13, oi.17, pk(tlsSk.20)>,
+       tlsPk = tlsPk.20
+       z     = verify(certOiSig.15, <'cert', $CA.13, oi.17, tlsPk.20>,
                       pk(skCA.19))
        z.1   = verify(certRootDSig.16,
-                      <'cert', $CA.13, <oi.17, sha256(rootKey.18)>, pk(tlsSk.20)>,
-                      pk(skCA.19))
-    
+                      <'cert', $CA.13, <oi.17, rootKeyHash.18>, tlsPk.20>, pk(skCA.19))
+
     2. $CA   = $CA.18
        certOiSig
-             = sign(<'cert', $CA.18, oi.22, pk(tlsSk.25)>, skCA.24)
+             = sign(<'cert', $CA.18, oi.22, tlsPk.25>, skCA.24)
        certRootDSig
              = certRootDSig.21
        oi    = oi.22
-       rootKey
-             = rootKey.23
+       rootKeyHash
+             = rootKeyHash.23
        skCA  = skCA.24
-       tlsSk = tlsSk.25
+       tlsPk = tlsPk.25
        z     = true
        z.1   = verify(certRootDSig.21,
-                      <'cert', $CA.18, <oi.22, sha256(rootKey.23)>, pk(tlsSk.25)>,
-                      pk(skCA.24))
-    
+                      <'cert', $CA.18, <oi.22, rootKeyHash.23>, tlsPk.25>, pk(skCA.24))
+
     3. $CA   = $CA.18
        certOiSig
-             = sign(<'cert', $CA.18, oi.22, pk(tlsSk.25)>, skCA.24)
+             = sign(<'cert', $CA.18, oi.22, tlsPk.25>, skCA.24)
        certRootDSig
-             = sign(<'cert', $CA.18, <oi.22, sha256(rootKey.23)>, pk(tlsSk.25)>,
+             = sign(<'cert', $CA.18, <oi.22, rootKeyHash.23>, tlsPk.25>,
                     skCA.24)
        oi    = oi.22
-       rootKey
-             = rootKey.23
+       rootKeyHash
+             = rootKeyHash.23
        skCA  = skCA.24
-       tlsSk = tlsSk.25
+       tlsPk = tlsPk.25
        z     = true
        z.1   = true
-    
+
     4. $CA   = $CA.20
        certOiSig
              = certOiSig.22
        certRootDSig
-             = sign(<'cert', $CA.20, <oi.24, sha256(rootKey.25)>, pk(tlsSk.27)>,
+             = sign(<'cert', $CA.20, <oi.24, rootKeyHash.25>, tlsPk.27>,
                     skCA.26)
        oi    = oi.24
-       rootKey
-             = rootKey.25
+       rootKeyHash
+             = rootKeyHash.25
        skCA  = skCA.26
-       tlsSk = tlsSk.27
-       z     = verify(certOiSig.22, <'cert', $CA.20, oi.24, pk(tlsSk.27)>,
+       tlsPk = tlsPk.27
+       z     = verify(certOiSig.22, <'cert', $CA.20, oi.24, tlsPk.27>,
                       pk(skCA.26))
        z.1   = true
   */
 
 lemma CanObtainRootKey:
   exists-trace
-  "(∃ oi rootKey #t. VerifiedRootKey( oi, rootKey ) @ #t) ∧
+  "(∃ oi rootKeyHash #t. VerifiedRootKey( oi, rootKeyHash ) @ #t) ∧
    (¬(∃ #x. SomeCompromise( ) @ #x))"
 /*
 guarded formula characterizing all satisfying traces:
-"(∃ oi rootKey #t. (VerifiedRootKey( oi, rootKey ) @ #t)) ∧
+"(∃ oi rootKeyHash #t. (VerifiedRootKey( oi, rootKeyHash ) @ #t)) ∧
  (∀ #x. (SomeCompromise( ) @ #x) ⇒ ⊥)"
 */
 simplify
@@ -557,20 +550,34 @@ solve( !CA( $CA, skCA ) ▶₀ #t )
   solve( !Log( $Log ) ▶₁ #t )
     case LogRegister
     solve( !MHTLeaf( $Log,
-                     <<'cert', $CA, oi, pk(tlsSk)>, 
-                      sign(<'cert', $CA, oi, pk(tlsSk)>, ~skCA)>
+                     <<'cert', $CA, oi, tlsPk>, sign(<'cert', $CA, oi, tlsPk>, ~skCA)>
            ) ▶₂ #t )
+      case AdversarialAppend
+      by sorry
+    next
       case Submit
       solve( !MHTLeaf( $Log,
-                       <<'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>, 
-                        sign(<'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>, ~skCA)>
+                       <<'cert', $CA, <oi, rootKeyHash>, tlsPk>,
+                        sign(<'cert', $CA, <oi, rootKeyHash>, tlsPk>, ~skCA)>
              ) ▶₃ #t )
+        case AdversarialAppend
+        by sorry
+      next
         case Submit
-        solve( !KU( sign(<'cert', $CA, oi, pk(tlsSk)>, ~skCA) ) @ #vk.12 )
+        solve( !KU( sign(<'cert', $CA, oi, tlsPk>, ~skCA) ) @ #vk.12 )
+          case CertificateRequest_case_1
+          by sorry
+        next
           case CertificateRequest_case_2
-          solve( !KU( sign(<'cert', $CA, <$OI, sha256(rootKey)>, pk(~skTLS)>,
+          solve( !KU( sign(<'cert', $CA, <$OI, rootKeyHash>, pk(~skTLS)>,
                            ~skCA)
                  ) @ #vk.14 )
+            case CertificateRequest_case_1
+            by sorry
+          next
+            case CertificateRequest_case_2
+            by sorry
+          next
             case CertificateRequest_case_3
             solve( !TLSKey( $A, $CA, $OI, ~skTLS ) ▶₀ #vr.13 )
               case TLSKeyRegister
@@ -583,12 +590,48 @@ solve( !CA( $CA, skCA ) ▶₀ #t )
                     solve( !KU( pk(~rootKey) ) @ #vk.16 )
                       case Ltk
                       SOLVED // trace found
+                    next
+                      case c_pk
+                      by sorry
                     qed
                   qed
+                next
+                  case c_pk
+                  by sorry
                 qed
               qed
             qed
+          next
+            case FraudulentCertificate
+            by sorry
+          next
+            case c_sign
+            by sorry
           qed
+        next
+          case CertificateRequest_case_3
+          by sorry
+        next
+          case CertificateRequest_case_4
+          by sorry
+        next
+          case CertificateRequest_case_5
+          by sorry
+        next
+          case CertificateRequest_case_6
+          by sorry
+        next
+          case CertificateRequest_case_7
+          by sorry
+        next
+          case CertificateRequest_case_8
+          by sorry
+        next
+          case FraudulentCertificate
+          by sorry
+        next
+          case c_sign
+          by sorry
         qed
       qed
     qed
@@ -636,7 +679,7 @@ rule (modulo E) ReceiveEmblem:
    [
    Fr( ~id ), In( <epk, <'emblem', $E, oi>, emblemSignature> ),
    In( <rootKey, <'end_int', oi, epk>, signature> ),
-   RootKeyVerified( oi, rootKey )
+   RootKeyVerified( oi, sha256(rootKey) )
    ]
   --[
   VerifiedEndorsed( ~id, oi, $E, epk ),
@@ -652,7 +695,7 @@ rule (modulo E) ReceiveEmblem:
      [
      Fr( ~id ), In( <epk, <'emblem', $E, oi>, emblemSignature> ),
      In( <rootKey, <'end_int', oi, epk>, signature> ),
-     RootKeyVerified( oi, rootKey )
+     RootKeyVerified( oi, sha256(rootKey) )
      ]
     --[
     VerifiedEndorsed( ~id, oi, $E, epk ),
@@ -674,7 +717,7 @@ rule (modulo E) ReceiveEmblem:
                       epk.22)
        z.1   = verify(signature.25, <'end_int', oi.23, epk.22>,
                       rootKey.24)
-    
+
     2. $E    = $E.26
        emblemSignature
              = emblemSignature.28
@@ -687,7 +730,7 @@ rule (modulo E) ReceiveEmblem:
        z     = verify(emblemSignature.28, <'emblem', $E.26, oi.30>,
                       epk.29)
        z.1   = true
-    
+
     3. $E    = $E.27
        emblemSignature
              = sign(<'emblem', $E.27, oi.31>, x.52)
@@ -700,7 +743,7 @@ rule (modulo E) ReceiveEmblem:
        z     = true
        z.1   = verify(signature.33, <'end_int', oi.31, pk(x.52)>,
                       rootKey.32)
-    
+
     4. $E    = $E.28
        emblemSignature
              = sign(<'emblem', $E.28, oi.32>, x.53)
@@ -723,7 +766,7 @@ rule (modulo E) ReceiveAuthorityEndorsement:
    [
    VerifyAuthorityEndorsements( ~id, oi, rootKey, $E ), Fr( ~sess ),
    In( <authPk, <'end_ext', auth, oi, rootKey>, endSignature> ),
-   RootKeyVerified( auth, authPk )
+   RootKeyVerified( auth, sha256(authPk) )
    ]
   --[
   Neq( auth, oi ),
@@ -741,7 +784,7 @@ rule (modulo E) ReceiveAuthorityEndorsement:
      [
      VerifyAuthorityEndorsements( ~id, oi, rootKey, $E ), Fr( ~sess ),
      In( <authPk, <'end_ext', auth, oi, rootKey>, endSignature> ),
-     RootKeyVerified( auth, authPk )
+     RootKeyVerified( auth, sha256(authPk) )
      ]
     --[
     Neq( auth, oi ), Eq( z, true ),
@@ -760,7 +803,7 @@ rule (modulo E) ReceiveAuthorityEndorsement:
              = rootKey.16
        z     = verify(endSignature.14,
                       <'end_ext', auth.12, oi.15, rootKey.16>, authPk.13)
-    
+
     2. auth  = auth.15
        authPk
              = pk(x.23)
@@ -807,7 +850,7 @@ simplify
 solve( VerifyAuthorityEndorsements( ~id, oi, pk(x.1), $E.1
        ) ▶₀ #c )
   case ReceiveAuthorityEndorsement_case_1
-  by sorry /* removed */
+  by sorry
 next
   case ReceiveAuthorityEndorsement_case_2
   by contradiction /* from formulas */
@@ -850,9 +893,9 @@ next
                 solve( !KU( sign(<'end_ext', $OI.2, $OI, pk(~rootKey)>, ~rootKey.2)
                        ) @ #vk.54 )
                   case EndorseParty
-                  solve( !KU( sign(<'cert', $CA, $OI, pk(tlsSk)>, ~skCA) ) @ #vk.61 )
+                  solve( !KU( sign(<'cert', $CA, $OI, tlsPk>, ~skCA) ) @ #vk.61 )
                     case CertificateRequest_case_2
-                    solve( !KU( sign(<'cert', $CA, <$OI, sha256(pk(~rootKey))>, 
+                    solve( !KU( sign(<'cert', $CA, <$OI, sha256(pk(~rootKey))>,
                                       pk(~skTLS)>,
                                      ~skCA)
                            ) @ #vk.62 )
@@ -861,10 +904,10 @@ next
                         case TLSKeyRegister
                         solve( !DomainOwner( $P, $OI ) ▶₁ #vr.40 )
                           case DomainRegister
-                          solve( !KU( sign(<'cert', $CA.1, $OI.1, pk(tlsSk)>, ~skCA.1)
+                          solve( !KU( sign(<'cert', $CA.1, $OI.1, tlsPk>, ~skCA.1)
                                  ) @ #vk.66 )
                             case CertificateRequest_case_2
-                            solve( !KU( sign(<'cert', $CA.1, <$OI.1, sha256(pk(~rootKey.1))>, 
+                            solve( !KU( sign(<'cert', $CA.1, <$OI.1, sha256(pk(~rootKey.1))>,
                                               pk(~skTLS.1)>,
                                              ~skCA.1)
                                    ) @ #vk.67 )
@@ -876,18 +919,19 @@ next
                                   solve( !KU( sign(<'cert', $CA.2, $OI.3, pk(~skUser)>, ~skCA.2)
                                          ) @ #vk.74 )
                                     case CertificateRequest
-                                    solve( !KU( sign(<'cert', $CA.2, 
+                                    solve( !KU( sign(<'cert', $CA.2,
                                                       <$OI.3, sha256(pk(~rootKey.3))>, pk(~skUser)>,
                                                      ~skCA.2)
                                            ) @ #vk.75 )
                                       case CertificateRequest
-                                      solve( RootKeyVerified( $OI.2, pk(~rootKey.2) ) ▶₃ #d )
+                                      solve( RootKeyVerified( $OI.2, sha256(pk(~rootKey.2))
+                                             ) ▶₃ #d )
                                         case RootKeyLearn_case_1
-                                        solve( !KU( sign(<'cert', $CA.3, $OI.2, pk(tlsSk)>, ~skCA.3)
+                                        solve( !KU( sign(<'cert', $CA.3, $OI.2, tlsPk>, ~skCA.3)
                                                ) @ #vk.88 )
                                           case CertificateRequest_case_2
-                                          solve( !KU( sign(<'cert', $CA.3, 
-                                                            <$OI.2, sha256(pk(~rootKey.2))>, 
+                                          solve( !KU( sign(<'cert', $CA.3,
+                                                            <$OI.2, sha256(pk(~rootKey.2))>,
                                                             pk(~skTLS.2)>,
                                                            ~skCA.3)
                                                  ) @ #vk.89 )
@@ -905,27 +949,28 @@ next
                                                       case Ltk
                                                       solve( !KU( pk(~rootKey.2) ) @ #vk.65 )
                                                         case Ltk
-                                                        solve( !KU( pk(~skTLS) ) @ #vk.77 )
-                                                          case TLSKeyRegister
-                                                          solve( !KU( sha256(pk(~rootKey))
-                                                                 ) @ #vk.78 )
+                                                        solve( !KU( sha256(pk(~rootKey))
+                                                               ) @ #vk.78 )
+                                                          case c_sha256
+                                                          solve( !KU( sha256(pk(~rootKey.1))
+                                                                 ) @ #vk.81 )
                                                             case c_sha256
-                                                            solve( !KU( pk(~skTLS.1) ) @ #vk.80 )
+                                                            solve( !KU( pk(~skUser) ) @ #vk.86 )
                                                               case TLSKeyRegister
-                                                              solve( !KU( sha256(pk(~rootKey.1))
-                                                                     ) @ #vk.81 )
-                                                                case c_sha256
-                                                                solve( !KU( pk(~skUser) ) @ #vk.86 )
+                                                              solve( !KU( pk(~rootKey.3)
+                                                                     ) @ #vk.87 )
+                                                                case Ltk
+                                                                solve( !KU( pk(~skTLS) ) @ #vk.82 )
                                                                   case TLSKeyRegister
-                                                                  solve( !KU( pk(~rootKey.3)
-                                                                         ) @ #vk.87 )
-                                                                    case Ltk
-                                                                    solve( !KU( pk(~skTLS.2)
-                                                                           ) @ #vk.89 )
-                                                                      case TLSKeyRegister
-                                                                      solve( !KU( sha256(pk(~rootKey.2))
+                                                                  solve( !KU( pk(~skTLS.1)
+                                                                         ) @ #vk.85 )
+                                                                    case TLSKeyRegister
+                                                                    solve( !KU( sha256(pk(~rootKey.2))
+                                                                           ) @ #vk.90 )
+                                                                      case c_sha256
+                                                                      solve( !KU( pk(~skTLS.2)
                                                                              ) @ #vk.90 )
-                                                                        case c_sha256
+                                                                        case TLSKeyRegister
                                                                         SOLVED // trace found
                                                                       qed
                                                                     qed
@@ -1020,7 +1065,7 @@ guarded formula characterizing all counter-examples:
 */
 induction
   case empty_trace
-  by contradiction /* from formulas */
+  by contradiction
 next
   case non_empty_trace
   simplify
@@ -1057,32 +1102,32 @@ next
       case case_1
       solve( VerifyAuthorityEndorsements( ~id, oi, rootKey, $E ) ▶₀ #t1 )
         case ReceiveAuthorityEndorsement_case_1
-        by contradiction /* from formulas */
+        by contradiction
       next
         case ReceiveAuthorityEndorsement_case_2
-        by contradiction /* from formulas */
+        by contradiction
       next
         case ReceiveAuthorityEndorsement_case_3
-        by contradiction /* from formulas */
+        by contradiction
       next
         case ReceiveAuthorityEndorsement_case_4
-        by contradiction /* from formulas */
+        by contradiction
       next
         case ReceiveEmblem_case_1
-        by contradiction /* from formulas */
+        by contradiction
       next
         case ReceiveEmblem_case_2
-        by contradiction /* from formulas */
+        by contradiction
       next
         case ReceiveEmblem_case_3
-        by contradiction /* from formulas */
+        by contradiction
       next
         case ReceiveEmblem_case_4
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case case_2
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case case_2
@@ -1105,32 +1150,32 @@ next
       case case_1
       solve( VerifyAuthorityEndorsements( ~id, oi, rootKey, $E ) ▶₀ #t1 )
         case ReceiveAuthorityEndorsement_case_1
-        by contradiction /* from formulas */
+        by contradiction
       next
         case ReceiveAuthorityEndorsement_case_2
-        by contradiction /* from formulas */
+        by contradiction
       next
         case ReceiveAuthorityEndorsement_case_3
-        by contradiction /* from formulas */
+        by contradiction
       next
         case ReceiveAuthorityEndorsement_case_4
-        by contradiction /* from formulas */
+        by contradiction
       next
         case ReceiveEmblem_case_1
-        by contradiction /* from formulas */
+        by contradiction
       next
         case ReceiveEmblem_case_2
-        by contradiction /* from formulas */
+        by contradiction
       next
         case ReceiveEmblem_case_3
-        by contradiction /* from formulas */
+        by contradiction
       next
         case ReceiveEmblem_case_4
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case case_2
-      by contradiction /* from formulas */
+      by contradiction
     qed
   qed
 qed
@@ -1193,7 +1238,7 @@ solve( !Ltk( $Party, ~rootKey ) ▶₀ #y )
         case c_sign
         solve( !KU( ~rootKey ) @ #vk.32 )
           case Reveal
-          by contradiction /* from formulas */
+          by contradiction
         qed
       qed
     next
@@ -1203,449 +1248,449 @@ solve( !Ltk( $Party, ~rootKey ) ▶₀ #y )
         case EndorseParty
         solve( !KU( ~rootKey ) @ #vk.32 )
           case Reveal
-          by contradiction /* from formulas */
+          by contradiction
         qed
       next
         case c_sign
         solve( !KU( ~rootKey ) @ #vk.33 )
           case Reveal
-          by contradiction /* from formulas */
+          by contradiction
         qed
       qed
     qed
   next
     case SendEmblem_case_01
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_02
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_03
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_04
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_05
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_06
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_07
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_08
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_09
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_10
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_11
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_12
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_13
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_14
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_15
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_16
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_17
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_18
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_19
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_20
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_21
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_22
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_23
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_24
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_25
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_26
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_27
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_28
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_29
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_30
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_31
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_32
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_33
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_34
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_35
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_36
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_37
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_38
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_39
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_40
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_41
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_42
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_43
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_44
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_45
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_46
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_47
-    by contradiction /* from formulas */
+    by contradiction
   next
     case SendEmblem_case_48
-    by contradiction /* from formulas */
+    by contradiction
   next
     case c_sign
     solve( !KU( sign(<'end_int', oi, pk(x)>, x.1) ) @ #vk.20 )
       case EndorseAsset_case_01
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_02
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_03
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_04
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_05
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_06
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_07
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_08
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_09
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_10
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_11
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_12
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_13
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_14
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_15
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_16
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_17
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_18
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_19
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_20
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_21
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_22
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_23
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_24
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_25
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_26
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_27
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_28
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_29
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_30
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_31
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_32
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_33
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_34
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_35
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_36
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_37
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_38
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_39
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_40
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_41
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_42
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_43
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_44
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_45
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_46
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_47
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case EndorseAsset_case_48
       solve( !KU( ~assetKey ) @ #vk.33 )
         case RevealAsset
-        by contradiction /* from formulas */
+        by contradiction
       qed
     next
       case FraudulentCertificate
@@ -1654,7 +1699,7 @@ solve( !Ltk( $Party, ~rootKey ) ▶₀ #y )
         case c_sign
         solve( !KU( ~rootKey ) @ #vk.33 )
           case Reveal
-          by contradiction /* from formulas */
+          by contradiction
         qed
       qed
     next
@@ -1664,13 +1709,13 @@ solve( !Ltk( $Party, ~rootKey ) ▶₀ #y )
         case EndorseParty
         solve( !KU( ~rootKey ) @ #vk.33 )
           case Reveal
-          by contradiction /* from formulas */
+          by contradiction
         qed
       next
         case c_sign
         solve( !KU( ~rootKey ) @ #vk.34 )
           case Reveal
-          by contradiction /* from formulas */
+          by contradiction
         qed
       qed
     qed
@@ -1702,7 +1747,31 @@ solve( !MHTLeaf( $Log, <<'cert', $SigningCA, d, pk>, sig> ) ▶₀ #t )
   solve( !TLSKey( $P, $CA, d, skTLS ) ▶₁ #t )
     case TLSKeyRegister_case_1
     SOLVED // trace found
+  next
+    case TLSKeyRegister_case_2
+    by sorry
+  next
+    case TLSKeyRegister_case_3
+    by sorry
+  next
+    case TLSKeyRegister_case_4
+    by sorry
+  next
+    case TLSKeyShare_case_1
+    by sorry
+  next
+    case TLSKeyShare_case_2
+    by sorry
+  next
+    case TLSKeyShare_case_3
+    by sorry
+  next
+    case TLSKeyShare_case_4
+    by sorry
   qed
+next
+  case Submit
+  by sorry
 qed
 
 lemma CAAccountability:
@@ -1726,7 +1795,7 @@ guarded formula characterizing all counter-examples:
 */
 simplify
 solve( LogInclusion( $Log,
-                     <<'cert', $SigningCA, d, pk>, 
+                     <<'cert', $SigningCA, d, pk>,
                       sign(<'cert', $SigningCA, d, pk>, ~skCA)>
        ) @ #z )
   case AdversarialAppend
@@ -1734,55 +1803,55 @@ solve( LogInclusion( $Log,
     case CertificateRequest_case_1
     solve( !TLSKey( $P, $CA, d, skTLS.1 ) ▶₁ #x )
       case TLSKeyRegister
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case CertificateRequest_case_2
     solve( !TLSKey( $P, $CA, $OI, skTLS.1 ) ▶₁ #x )
       case TLSKeyRegister
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case CertificateRequest_case_3
     solve( !TLSKey( $P, $CA, d, skTLS.1 ) ▶₁ #x )
       case TLSKeyShare
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case CertificateRequest_case_4
     solve( !TLSKey( $P, $CA, $OI, skTLS.1 ) ▶₁ #x )
       case TLSKeyShare
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case CertificateRequest_case_5
     solve( !TLSKey( $P, $CA, <d, sub>, skTLS.1 ) ▶₁ #x )
       case TLSKeyRegister
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case CertificateRequest_case_6
     solve( !TLSKey( $P, $CA, <$OI, sha256(pk(~rootKey))>, skTLS.1
            ) ▶₁ #x )
       case TLSKeyRegister
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case CertificateRequest_case_7
     solve( !TLSKey( $P, $CA, <d1, sub>, skTLS.1 ) ▶₁ #x )
       case TLSKeyShare
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case CertificateRequest_case_8
     solve( !TLSKey( $P, $CA, <$OI, sha256(pk(~rootKey))>, skTLS.1
            ) ▶₁ #x )
       case TLSKeyShare
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case FraudulentCertificate
-    by contradiction /* from formulas */
+    by contradiction
   next
     case c_sign
     by solve( !KU( ~skCA ) @ #vk.9 )
@@ -1793,55 +1862,55 @@ next
     case CertificateRequest_case_1
     solve( !TLSKey( $P, $CA, d, skTLS.1 ) ▶₁ #x )
       case TLSKeyRegister
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case CertificateRequest_case_2
     solve( !TLSKey( $P, $CA, $OI, skTLS.1 ) ▶₁ #x )
       case TLSKeyRegister
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case CertificateRequest_case_3
     solve( !TLSKey( $P, $CA, d, skTLS.1 ) ▶₁ #x )
       case TLSKeyShare
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case CertificateRequest_case_4
     solve( !TLSKey( $P, $CA, $OI, skTLS.1 ) ▶₁ #x )
       case TLSKeyShare
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case CertificateRequest_case_5
     solve( !TLSKey( $P, $CA, <d, sub>, skTLS.1 ) ▶₁ #x )
       case TLSKeyRegister
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case CertificateRequest_case_6
     solve( !TLSKey( $P, $CA, <$OI, sha256(pk(~rootKey))>, skTLS.1
            ) ▶₁ #x )
       case TLSKeyRegister
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case CertificateRequest_case_7
     solve( !TLSKey( $P, $CA, <d1, sub>, skTLS.1 ) ▶₁ #x )
       case TLSKeyShare
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case CertificateRequest_case_8
     solve( !TLSKey( $P, $CA, <$OI, sha256(pk(~rootKey))>, skTLS.1
            ) ▶₁ #x )
       case TLSKeyShare
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case FraudulentCertificate
-    by contradiction /* from formulas */
+    by contradiction
   next
     case c_sign
     by solve( !KU( ~skCA ) @ #vk.9 )
@@ -1872,7 +1941,7 @@ simplify
 solve( !KU( sign(<'end_ext', $OI.1, $OI, pk(x)>, ~rootKey.1)
        ) @ #vk.13 )
   case EndorseParty
-  by contradiction /* from formulas */
+  by contradiction
 next
   case FraudulentCertificate
   solve( !Ltk( $Party, ~rootKey ) ▶₀ #t1 )
@@ -1887,7 +1956,7 @@ next
       case Ltk
       solve( !KU( ~rootKey.1 ) @ #vk.25 )
         case Reveal
-        by contradiction /* from formulas */
+        by contradiction
       qed
     qed
   qed
@@ -1914,148 +1983,148 @@ guarded formula characterizing all counter-examples:
 simplify
 solve( !KU( sign(<'end_int', $OI, pk(x)>, ~rootKey) ) @ #vk.15 )
   case EndorseAsset_case_01
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_02
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_03
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_04
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_05
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_06
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_07
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_08
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_09
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_10
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_11
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_12
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_13
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_14
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_15
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_16
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_17
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_18
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_19
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_20
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_21
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_22
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_23
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_24
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_25
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_26
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_27
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_28
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_29
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_30
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_31
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_32
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_33
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_34
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_35
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_36
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_37
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_38
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_39
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_40
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_41
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_42
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_43
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_44
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_45
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_46
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_47
-  by contradiction /* from formulas */
+  by contradiction
 next
   case EndorseAsset_case_48
-  by contradiction /* from formulas */
+  by contradiction
 next
   case FraudulentCertificate
   by solve( !Ltk( $Party, ~rootKey ) ▶₀ #t1 )
@@ -2065,7 +2134,7 @@ next
     case Reveal
     solve( !Ltk( $Party, ~rootKey ) ▶₀ #t1 )
       case Ltk
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case RevealAsset
@@ -2129,139 +2198,139 @@ solve( UsedRootKey( oi, rk ) @ #t )
   case ReceiveAuthorityEndorsement
   solve( VerifyAuthorityEndorsements( ~id, oi, pk(x), $E ) ▶₀ #t )
     case ReceiveAuthorityEndorsement_case_1
-    solve( RootKeyVerified( oi.1, pk(x.1) ) ▶₃ #t )
+    solve( RootKeyVerified( oi.1, sha256(pk(x.1)) ) ▶₃ #t )
       case RootKeyLearn_case_1
-      by contradiction /* from formulas */
+      by contradiction
     next
       case RootKeyLearn_case_2
-      by contradiction /* from formulas */
+      by contradiction
     next
       case RootKeyLearn_case_3
-      by contradiction /* from formulas */
+      by contradiction
     next
       case RootKeyLearn_case_4
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case ReceiveAuthorityEndorsement_case_2
-    solve( RootKeyVerified( oi.1, pk(x.1) ) ▶₃ #t )
+    solve( RootKeyVerified( oi.1, sha256(pk(x.1)) ) ▶₃ #t )
       case RootKeyLearn_case_1
-      by contradiction /* from formulas */
+      by contradiction
     next
       case RootKeyLearn_case_2
-      by contradiction /* from formulas */
+      by contradiction
     next
       case RootKeyLearn_case_3
-      by contradiction /* from formulas */
+      by contradiction
     next
       case RootKeyLearn_case_4
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case ReceiveAuthorityEndorsement_case_3
-    solve( RootKeyVerified( oi.1, pk(x.1) ) ▶₃ #t )
+    solve( RootKeyVerified( oi.1, sha256(pk(x.1)) ) ▶₃ #t )
       case RootKeyLearn_case_1
-      by contradiction /* from formulas */
+      by contradiction
     next
       case RootKeyLearn_case_2
-      by contradiction /* from formulas */
+      by contradiction
     next
       case RootKeyLearn_case_3
-      by contradiction /* from formulas */
+      by contradiction
     next
       case RootKeyLearn_case_4
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case ReceiveAuthorityEndorsement_case_4
-    solve( RootKeyVerified( oi.1, pk(x.1) ) ▶₃ #t )
+    solve( RootKeyVerified( oi.1, sha256(pk(x.1)) ) ▶₃ #t )
       case RootKeyLearn_case_1
-      by contradiction /* from formulas */
+      by contradiction
     next
       case RootKeyLearn_case_2
-      by contradiction /* from formulas */
+      by contradiction
     next
       case RootKeyLearn_case_3
-      by contradiction /* from formulas */
+      by contradiction
     next
       case RootKeyLearn_case_4
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case ReceiveEmblem_case_1
-    solve( RootKeyVerified( oi.1, pk(x.1) ) ▶₃ #t )
+    solve( RootKeyVerified( oi.1, sha256(pk(x.1)) ) ▶₃ #t )
       case RootKeyLearn_case_1
-      by contradiction /* from formulas */
+      by contradiction
     next
       case RootKeyLearn_case_2
-      by contradiction /* from formulas */
+      by contradiction
     next
       case RootKeyLearn_case_3
-      by contradiction /* from formulas */
+      by contradiction
     next
       case RootKeyLearn_case_4
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case ReceiveEmblem_case_2
-    solve( RootKeyVerified( oi.1, pk(x.1) ) ▶₃ #t )
+    solve( RootKeyVerified( oi.1, sha256(pk(x.1)) ) ▶₃ #t )
       case RootKeyLearn_case_1
-      by contradiction /* from formulas */
+      by contradiction
     next
       case RootKeyLearn_case_2
-      by contradiction /* from formulas */
+      by contradiction
     next
       case RootKeyLearn_case_3
-      by contradiction /* from formulas */
+      by contradiction
     next
       case RootKeyLearn_case_4
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case ReceiveEmblem_case_3
-    solve( RootKeyVerified( oi.1, pk(x.1) ) ▶₃ #t )
+    solve( RootKeyVerified( oi.1, sha256(pk(x.1)) ) ▶₃ #t )
       case RootKeyLearn_case_1
-      by contradiction /* from formulas */
+      by contradiction
     next
       case RootKeyLearn_case_2
-      by contradiction /* from formulas */
+      by contradiction
     next
       case RootKeyLearn_case_3
-      by contradiction /* from formulas */
+      by contradiction
     next
       case RootKeyLearn_case_4
-      by contradiction /* from formulas */
+      by contradiction
     qed
   next
     case ReceiveEmblem_case_4
-    solve( RootKeyVerified( oi.1, pk(x.1) ) ▶₃ #t )
+    solve( RootKeyVerified( oi.1, sha256(pk(x.1)) ) ▶₃ #t )
       case RootKeyLearn_case_1
-      by contradiction /* from formulas */
+      by contradiction
     next
       case RootKeyLearn_case_2
-      by contradiction /* from formulas */
+      by contradiction
     next
       case RootKeyLearn_case_3
-      by contradiction /* from formulas */
+      by contradiction
     next
       case RootKeyLearn_case_4
-      by contradiction /* from formulas */
+      by contradiction
     qed
   qed
 next
   case ReceiveEmblem
-  solve( RootKeyVerified( oi, pk(x.1) ) ▶₃ #t )
+  solve( RootKeyVerified( oi, sha256(pk(x.1)) ) ▶₃ #t )
     case RootKeyLearn_case_1
-    by contradiction /* from formulas */
+    by contradiction
   next
     case RootKeyLearn_case_2
-    by contradiction /* from formulas */
+    by contradiction
   next
     case RootKeyLearn_case_3
-    by contradiction /* from formulas */
+    by contradiction
   next
     case RootKeyLearn_case_4
-    by contradiction /* from formulas */
+    by contradiction
   qed
 qed
 
@@ -2302,21 +2371,14 @@ restriction OnlyOnce:
 
 
 
-/*
-WARNING: the following wellformedness checks failed!
-
-Derivation Checks
-=================
-
-  Derivation checks timed out. Use --derivcheck-timeout=INT to configure timeout, 0 to deactivate.
-*/
+/* All wellformedness checks were successful. */
 
 /*
 Generated from:
 Tamarin version 1.8.0
-Maude version 3.1
-Git revision: f172d7f00b1485446a1e7a42dc14623c2189cc42, branch: master
-Compiled at: 2023-08-31 10:43:56.765388839 UTC
+Maude version 3.2.1
+Git revision: UNKNOWN, branch: UNKNOWN
+Compiled at: 2023-09-02 13:40:44.835695 UTC
 */
 
 end
