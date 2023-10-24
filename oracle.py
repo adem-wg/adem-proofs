@@ -57,9 +57,9 @@ elif argv[1] == 'AuthenticEmblem':
     'VerifyEndorsements',
     '!KU( sign(<\'emblem\'',
     '!KU( sign(<\'end_int\'',
-    re.compile('VerifyAuthoritySetup\( ~id(\.\d+)?, ~sess(\.\d+)?, [\$\d\w\.]+, pk\(~'),
-    re.compile('!KU\( sign\(<\'end_ext\', .+ ~[\w\.\d]+\) \) @ #[\w\.\d]+$'),
-    re.compile('RootKeyResponse\( ~sess(\.\d+)?, oi'),
+    re.compile(r'VerifyAuthoritySetup\( ~id(\.\d+)?, ~sess(\.\d+)?, [\$\d\w\.]+, pk\(~'),
+    re.compile(r'!KU\( sign\(<\'end_ext\', .+ ~[\w\.\d]+\) \) @ #[\w\.\d]+$'),
+    re.compile(r'RootKeyResponse\( ~sess(\.\d+)?, oi'),
   ], lines)
 elif argv[1] == 'CAAccountability':
   match = matchAgainstList([
