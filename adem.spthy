@@ -157,22 +157,22 @@ rule RootSetupCertificates:
   [ !RootSetup($P, ~rootKey, oi, rootD) ]
 
 rule RootKeyLearn:
-  let certOi = <'cert', $CA, oi, pk(tlsSk)>
-      certRootD = <'cert', $CA, <oi, sha256(rootKey)>, pk(tlsSk)>
+  let certOi = <'cert', $CA, oi, tlsPk>
+      certRootD = <'cert', $CA, <oi, rootKeyHash>, tlsPk>
   in
   [ !CA($CA, skCA), !Log($Log)
   , !MHTLeaf($Log, <certOi, certOiSig>), !MHTLeaf($Log, <certRootD, certRootDSig>) ]
   --[ Eq(verify(certOiSig, certOi, pk(skCA)), true)
     , Eq(verify(certRootDSig, certRootD, pk(skCA)), true)
-    , VerifiedRootKey(oi, rootKey)
+    , VerifiedRootKey(oi, rootKeyHash)
     , RootCertVerified(<certRootD, certRootDSig>)
     , LogInclusionVerified($Log, certOi)
     , LogInclusionVerified($Log, certRootD) ]->
-  [ RootKeyVerified(oi, rootKey) ]
+  [ RootKeyVerified(oi, rootKeyHash) ]
 
 lemma CanObtainRootKey:
   exists-trace
-  " (Ex oi rootKey #t. VerifiedRootKey(oi, rootKey) @ #t)
+  " (Ex oi rootKeyHash #t. VerifiedRootKey(oi, rootKeyHash) @ #t)
   & (not Ex #x. SomeCompromise() @ #x)"
 
 // ADEM endorsements and emblem distribution
@@ -207,7 +207,7 @@ rule ReceiveEmblem:
   [ Fr(~id)
   , In(<epk, emblemBody, emblemSignature>)
   , In(<rootKey, body, signature>)
-  , RootKeyVerified(oi, rootKey)
+  , RootKeyVerified(oi, sha256(rootKey))
   ]
   --[ VerifiedEndorsed(~id, oi, $E, epk)
     , VerifiedRootEndorsement(~id, oi, rootKey)
@@ -229,7 +229,7 @@ rule ReceiveAuthorityEndorsement:
   [ VerifyAuthorityEndorsements(~id, oi, rootKey, $E)
   , Fr(~sess)
   , In(<authPk, endBody, endSignature>)
-  , RootKeyVerified(auth, authPk) ]
+  , RootKeyVerified(auth, sha256(authPk)) ]
   --[ Neq(auth, oi)
     , Eq(verify(endSignature, endBody, authPk), true)
     , VerifiedAuthorityEndorsement(~id, auth, authPk, oi, rootKey)
