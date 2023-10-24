@@ -1,4 +1,4 @@
-tamarin-prover --derivcheck-timeout=0 --output=proofs.spthy \
+tamarin-prover \
   --prove=TLSKeyShareRecursion \
   --prove=TLSKeyLeakRecursion \
   --prove=WrongCAKeyUseImpliesCompromise \
