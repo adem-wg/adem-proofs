@@ -21,6 +21,8 @@ You can prove all lemmas but `CanReceiveEmblem` yourself by executing the `batch
 The lemma `CanReceiveEmblem` must be proven manually.
 See the comment below.
 
+Should you see a warning regarding wellformedness checks, please see our note below.
+
 ## Note on Executability Lemma
 
 If you want to find proofs for lemmas yourself, note that the lemma `CanReceiveEmblem` must be proven manually.
@@ -38,6 +40,33 @@ Second, follow these steps to prove the lemma:
 * Skip to case `ReceiveEmblem_case_1` and solve first goal
 * Solve first goal
 * Skip to case `ReceiveEmblem` and use `autoprove` (scroll down or press keyboard button `a`)
+
+## Note on Wellformedness Checks
+
+It might happen that Tamarin outputs the following warning when verifying or generating proofs:
+
+```
+WARNING:  1 wellformedness check failed!
+          The analysis results might be wrong!
+```
+
+This is most likely due to a wellformedness check timing out.
+You can verify this by scrolling up in the terminal output a bit.
+There you should see:
+
+```
+/*
+WARNING: the following wellformedness checks failed!
+
+Derivation Checks
+=================
+
+  Derivation checks timed out. Use --derivcheck-timeout=INT to configure timeout, 0 to deactivate.
+*/
+```
+
+To fix this warning, we suggest increasing that timeout by passing the argument `--derivcheck-timeout=300` to Tamarin.
+Should they still time out, you may need to increase that timeout further, but 300 seconds should suffice.
 
 ## Acknowledgements
 
