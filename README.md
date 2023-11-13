@@ -11,6 +11,14 @@ To use our formal model and proofs, you need to install:
 Probably, later versions will work as well, but v1.8.0 was used during creation of the model and proofs.
 - [Python3](https://www.python.org/downloads/) to run the custom proof heuristics provided in `oracle.py`.
 
+It might happen that Tamarin runs into file encoding issues on your system, e.g., this has been reported for Ubuntu 20.04 and results into errors like `invalid argument (invalid byte sequence)`.
+In this case, please make sure that your shell is using UTF-8 encoding.
+On Ubuntu, you can configure this by executing:
+
+```sh
+export LANG=en_US.UTF-8
+```
+
 ## Repository Contents
 
 | File | Description |
