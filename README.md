@@ -38,13 +38,12 @@ tamarin-prover ./proofs/proofs.spthy
 ```
 
 You can also find proofs, either automated or manually.
-To find a proof for a lemma automated, e.g., `AuthenticEmblem`, use the command (multiple `--prove=...` possible):
+To find a proof for all lemmas (except `CanReceiveEmblem`) automatically, run the script:
 
 ```sh
-tamarin-prover --prove=AuthenticEmblem adem.spthy
+./batch-run-all.sh
 ```
 
-You can prove all lemmas but `CanReceiveEmblem` yourself by executing the `batch-run-all.sh` script.
 The lemma `CanReceiveEmblem` must be proven manually.
 See the comment below.
 
