@@ -1,7 +1,10 @@
 # ADEM Proofs
 
-This repository contains formal proofs of the ADEM design, encoded for the [Tamarin model checker](https://tamarin-prover.github.io/).
+This repository contains formal proofs of ADEM, An Authentic Digital EMblem, encoded for the [Tamarin model checker](https://tamarin-prover.github.io/).
 We were using Tamarin version 1.8.0 to find and check proofs.
+
+We provide details on what we prove here in our paper, Section 4.
+You can find the paper here: https://dl.acm.org/doi/10.1145/3576915.3616578
 
 ## Prerequisites
 
