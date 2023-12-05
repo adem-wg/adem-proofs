@@ -202,7 +202,6 @@ rule SendEmblem:
 rule ReceiveEmblem:
   let emblemBody = <'emblem', $E, oi>
       body = <'end_int', oi, epk>
-      certBody = <'cert', $CA, oi, tlsPk>
   in
   [ Fr(~id)
   , In(<epk, emblemBody, emblemSignature>)
@@ -224,7 +223,6 @@ rule VerifyAuthorityEndorsementsTerminate:
 
 rule ReceiveAuthorityEndorsement:
   let endBody = <'end_ext', auth, oi, rootKey>
-      certBody = <'cert', $CA, auth, tlsKey>
   in
   [ VerifyAuthorityEndorsements(~id, oi, rootKey, $E)
   , Fr(~sess)
