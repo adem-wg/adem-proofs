@@ -185,7 +185,7 @@ rule Asset:
 rule EndorseAsset:
   [ !AssetOf($P, $E, assetKey)
   , !RootDomains($P, rootKey, oi, rootD) ]
-  --[ OnlyOnce(<'endorsed', $E>) ]->
+  --[ OnlyOnce(<'end_int', $E>) ]->
   [ Out(sign(<'end_int', oi, pk(assetKey)>, rootKey)) ]
 
 rule EndorseParty:
@@ -213,7 +213,8 @@ rule ReceiveEmblem:
     , UsedRootKey(oi, rootKey)
     , Eq(verify(emblemSignature, emblemBody, epk), true)
     , Eq(verify(signature, body, rootKey), true) ]->
-  [ VerifyAuthorityEndorsements(~id, oi, rootKey, $E) ]
+  [ VerifyAuthorityEndorsements(~id, oi, rootKey, $E)
+  , Out(<'ORGANIZATIONAL', oi, $E>) ]
 
 // Non-deterministically choose to terminate
 rule VerifyAuthorityEndorsementsTerminate:
@@ -232,7 +233,8 @@ rule ReceiveAuthorityEndorsement:
     , Eq(verify(endSignature, endBody, authPk), true)
     , VerifiedAuthorityEndorsement(~id, auth, authPk, oi, rootKey)
     , UsedRootKey(auth, authPk) ]->
-  [ VerifyAuthorityEndorsements(~id, oi, rootKey, $E) ]
+  [ VerifyAuthorityEndorsements(~id, oi, rootKey, $E)
+  , Out(<'ENDORSED', auth>) ]
 
 lemma CanReceiveEmblem:
   exists-trace
