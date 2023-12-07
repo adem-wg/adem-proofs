@@ -199,7 +199,26 @@ rule SendEmblem:
   -->
   [ Out(sign(<'emblem', $E, oi>, assetKey)) ]
 
-rule ReceiveEmblem:
+rule ReceiveUnsignedEmblem:
+  [ In(<'emblem', $E>) ]
+  -->
+  [ Out(<'UNSIGNED', $E>) ]
+
+rule ReceiveInvalidEmblem:
+  let emblemBody = <'emblem', tail>
+  in
+  [ In(<epk, emblemBody, emblemSignature>) ]
+  --[ Neq(verify(emblemSignature, emblemBody, epk), true) ]->
+  [ Out('INVALID') ]
+
+rule ReceiveSignedEmblem:
+  let emblemBody = <'emblem', $E>
+  in
+  [ In(<epk, emblemBody, emblemSignature>) ]
+  --[ Eq(verify(emblemSignature, emblemBody, epk), true) ]->
+  [ Out(<'SIGNED', $E>) ]
+
+rule ReceiveOrganizationalEmblem:
   let emblemBody = <'emblem', $E, oi>
       body = <'end_int', oi, epk>
   in
