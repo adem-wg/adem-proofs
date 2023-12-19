@@ -5,6 +5,21 @@ heuristic: o "./oracle.py"
 
 builtins: signing
 
+// TLS
+functions: tlsClientMsg/4, tlsServerMsg/4, tlsClientReceive/2,
+  tlsServerReceive/2
+
+equations:
+  tlsClientReceive(tlsServerMsg(~sess, domain, ~sk, m), ~sess) = m
+, tlsServerReceive(tlsClientMsg(~sess, domain, pk(~sk), m), ~sk) = m
+, tlsServerReceive(tlsClientMsg(~sess, domain, pk(~sk), m), ~sk) = ~sess
+
+functions: sha256/1
+
+/* -------------------- */
+/*   Environment rules  */
+/* -------------------- */
+
 // DNS
 rule DomainRegister:
   [ DomainRegister($A, d) ]
@@ -19,37 +34,17 @@ rule SubdomainRegister:
   [ DomainRegister($A, <d, sub>), !DomainOwner($A, d) ]
   --[ OnlyOnce(<'domain_register', <d, sub>>) ]->
   [ !DomainOwner($A, <d, sub>) ]
-
-rule DomainCompromise:
+  
+  rule DomainCompromise:
   [ In($A), In(d) ]
   --[ CompromisedDomainOwner($A)
     , SomeCompromise() ]->
-  [ DomainRegister($A, d) ]
+    [ DomainRegister($A, d) ]
+    
+/* ---------------------- */
+/*   Protocol rules: CAs  */
+/* ---------------------- */
 
-// Certificate Transparency
-rule LogRegister:
-  []
-  --[ IsLog($Log) ]->
-  [ !Log($Log) ]
-
-rule Submit:
-  let certBody = <'cert', $CA, d, pk>
-  in
-  [ !CA($CA, skCA), !Log($Log)
-  , In(<certBody, certSig>) ]
-  --[ Eq(verify(certSig, certBody, pk(skCA)), true)
-    , Eq(fst(snd(certBody)), $CA)
-    , LogInclusion($Log, <certBody, certSig>) ]->
-  [ !MHTLeaf($Log, <certBody, certSig>) ]
-
-rule AdversarialAppend:
-  [ In(msg) ]
-  --[ LogInclusion($Log, msg)
-    , CompromisedParty($Log)
-    , SomeCompromise() ]->
-  [ !MHTLeaf($Log, msg) ]
-
-// Certificate authorities
 rule CA:
   [ Fr(~skCA) ]
   --[ CASk($CA, ~skCA)
@@ -83,42 +78,48 @@ rule TLSKeyLeak:
     , SomeCompromise() ]->
   [ Out(~skUser) ]
 
-lemma TLSKeyShareRecursion[use_induction,reuse]:
-  "All k #t1. TLSKeyShare(k) @ #t1 ==> Ex #t2. TLSKeyGen(k) @ #t2"
-
-lemma TLSKeyLeakRecursion[use_induction,reuse]:
-  "All k #t. CompromisedTLSKey(k) @ #t ==> Ex #x. TLSKeyGen(k) @ #x"
-
-lemma WrongCAKeyUseImpliesCompromise[reuse]:
-  "All tag m ca caSk #t1 #t2.
-        ( CASk(ca, caSk) @ #t1
-        & !KU(<<tag, m>, sign(<'tag', m>, caSk)>) @ #t2
-        & not (tag = 'cert'))
-    ==> (Ex #x. CompromisedCA(ca) @ #x & CompromisedParty(ca) @ #x)"
-
 rule CertificateRequest:
   [ !DomainOwner($A, d), !TLSKey($A, $CA, d, ~skTLS), !CA($CA, ~skCA) ]
   --[ OnlyOnce(<'certificate', d>) ]->
   [  Out(sign(<'cert', $CA, d, pk(~skTLS)>, ~skCA)) ]
 
-// TLS
-functions: tlsClientMsg/4, tlsServerMsg/4, tlsClientReceive/2,
-  tlsServerReceive/2
-equations:
-  tlsClientReceive(tlsServerMsg(~sess, domain, ~sk, m), ~sess) = m
-, tlsServerReceive(tlsClientMsg(~sess, domain, pk(~sk), m), ~sk) = m
-, tlsServerReceive(tlsClientMsg(~sess, domain, pk(~sk), m), ~sk) = ~sess
 
-// ADEM Root Keys
+/* -------------------------- */
+/*   Protocol rules: CT Logs  */
+/* -------------------------- */
+
+rule LogRegister:
+  []
+  --[ IsLog($Log) ]->
+  [ !Log($Log) ]
+
+rule Submit:
+  let certBody = <'cert', $CA, d, pk>
+  in
+  [ !CA($CA, skCA), !Log($Log)
+  , In(<certBody, certSig>) ]
+  --[ Eq(verify(certSig, certBody, pk(skCA)), true)
+    , Eq(fst(snd(certBody)), $CA)
+    , LogInclusion($Log, <certBody, certSig>) ]->
+  [ !MHTLeaf($Log, <certBody, certSig>) ]
+
+rule AdversarialAppend:
+  [ In(msg) ]
+  --[ LogInclusion($Log, msg)
+    , CompromisedParty($Log)
+    , SomeCompromise() ]->
+  [ !MHTLeaf($Log, msg) ]
+
+
+/* ------------------------------- */
+/*   Protocol rules: ADEM Parties  */
+/* ------------------------------- */
+
+// Root Keys
 rule Ltk:
   [ Fr(~rootKey) ]
   -->
   [ !Ltk($A, ~rootKey), Out(pk(~rootKey)) ]
-
-rule AssetKey:
-  [ Fr(~assetKey) ]
-  -->
-  [ !LtkAsset($A, ~assetKey), Out(pk(~assetKey)) ]
 
 rule Reveal:
   [ !Ltk($A, ~ltk) ]
@@ -127,13 +128,17 @@ rule Reveal:
     , SomeCompromise() ]->
   [ Out(~ltk) ]
 
+rule AssetKey:
+  [ Fr(~assetKey) ]
+  -->
+  [ !LtkAsset($A, ~assetKey), Out(pk(~assetKey)) ]
+
 rule RevealAsset:
   [ !LtkAsset($A, ~ltk) ]
   --[ CompromisedAssetKey($A, pk(~ltk))
     , SomeCompromise() ]->
   [ Out(~ltk) ]
 
-functions: sha256/1
 rule RootSetupDomains:
   let rootD = <$OI, sha256(pk(~rootKey))>
   in
@@ -156,24 +161,13 @@ rule RootSetupCertificates:
     , Eq(verify(sigRootCert, bodyRootCert, pk(skCA)), true) ]->
   [ !RootSetup($P, ~rootKey, oi, rootD) ]
 
-rule RootKeyLearn:
-  let certOi = <'cert', $CA, oi, tlsPk>
-      certRootD = <'cert', $CA, <oi, rootKeyHash>, tlsPk>
+rule MonitorLogs:
+  let cert = <'cert', $SigningCA, d, pkTLS>
   in
-  [ !CA($CA, skCA), !Log($Log)
-  , !MHTLeaf($Log, <certOi, certOiSig>), !MHTLeaf($Log, <certRootD, certRootDSig>) ]
-  --[ Eq(verify(certOiSig, certOi, pk(skCA)), true)
-    , Eq(verify(certRootDSig, certRootD, pk(skCA)), true)
-    , VerifiedRootKey(oi, rootKeyHash)
-    , RootCertVerified(<certRootD, certRootDSig>)
-    , LogInclusionVerified($Log, certOi)
-    , LogInclusionVerified($Log, certRootD) ]->
-  [ RootKeyVerified(oi, rootKeyHash) ]
-
-lemma CanObtainRootKey:
-  exists-trace
-  " (Ex oi rootKeyHash #t. VerifiedRootKey(oi, rootKeyHash) @ #t)
-  & (not Ex #x. SomeCompromise() @ #x)"
+  [ !MHTLeaf($Log, <cert, sig>), !TLSKey($P, $CA, d, skTLS) ]
+  --[ Neq(pk(skTLS), pkTLS)
+    , Dispute($P, $Log, $SigningCA, d, pkTLS) ]->
+  []
 
 // ADEM endorsements and emblem distribution
 rule Asset:
@@ -199,30 +193,55 @@ rule SendEmblem:
   -->
   [ Out(sign(<'emblem', $E, oi>, assetKey)) ]
 
+
+/* ---------------------------- */
+/*   Protocol rules: Verifiers  */
+/* ---------------------------- */
+
+rule RootKeyLearn: // env rule
+  let certOi = <'cert', $CA, oi, tlsPk>
+      certRootD = <'cert', $CA, <oi, rootKeyHash>, tlsPk>
+  in
+  [ !CA($CA, skCA), !Log($Log)
+  , !MHTLeaf($Log, <certOi, certOiSig>), !MHTLeaf($Log, <certRootD, certRootDSig>) ]
+  --[ Eq(verify(certOiSig, certOi, pk(skCA)), true)
+    , Eq(verify(certRootDSig, certRootD, pk(skCA)), true)
+    , VerifiedRootKey(oi, rootKeyHash)
+    , RootCertVerified(<certRootD, certRootDSig>)
+    , LogInclusionVerified($Log, certOi)
+    , LogInclusionVerified($Log, certRootD) ]->
+  [ RootKeyVerified(oi, rootKeyHash) ]
+
+rule Verifier_init:
+    [ Fr(~rid) ]
+    -->
+    [ Setup_Verifier(~rid) ]
+
 rule ReceiveUnsignedEmblem:
-  [ In(<'emblem', $E>) ]
+  [ Setup_Verifier(ridV), In(<'emblem', $E>) ]
   -->
-  [ Out(<'UNSIGNED', $E>) ]
+  [ St_Verifier_2(ridV), Out(<'UNSIGNED', $E>) ]
 
 rule ReceiveInvalidEmblem:
   let emblemBody = <'emblem', tail>
   in
-  [ In(<epk, emblemBody, emblemSignature>) ]
+  [ Setup_Verifier(ridV), In(<epk, emblemBody, emblemSignature>) ]
   --[ Neq(verify(emblemSignature, emblemBody, epk), true) ]->
-  [ Out('INVALID') ]
+  [ St_Verifier_2(ridV), Out('INVALID') ]
 
 rule ReceiveSignedEmblem:
   let emblemBody = <'emblem', $E>
   in
-  [ In(<epk, emblemBody, emblemSignature>) ]
+  [ Setup_Verifier(ridV), In(<epk, emblemBody, emblemSignature>) ]
   --[ Eq(verify(emblemSignature, emblemBody, epk), true) ]->
-  [ Out(<'SIGNED', $E>) ]
+  [ St_Verifier_2(ridV), Out(<'SIGNED', $E>) ]
 
 rule ReceiveOrganizationalEmblem:
   let emblemBody = <'emblem', $E, oi>
       body = <'end_int', oi, epk>
   in
-  [ Fr(~id)
+  [ Setup_Verifier(ridV) 
+  , Fr(~id)
   , In(<epk, emblemBody, emblemSignature>)
   , In(<rootKey, body, signature>)
   , RootKeyVerified(oi, sha256(rootKey))
@@ -232,19 +251,19 @@ rule ReceiveOrganizationalEmblem:
     , UsedRootKey(oi, rootKey)
     , Eq(verify(emblemSignature, emblemBody, epk), true)
     , Eq(verify(signature, body, rootKey), true) ]->
-  [ VerifyAuthorityEndorsements(~id, oi, rootKey, $E)
+  [ St_Verifier_1(ridV, ~id, oi, rootKey, $E)
   , Out(<'ORGANIZATIONAL', oi, $E>) ]
 
 // Non-deterministically choose to terminate
 rule VerifyAuthorityEndorsementsTerminate:
-  [ VerifyAuthorityEndorsements(~id, oi, rootKey, $E) ]
+  [ St_Verifier_1(ridV, ~id, oi, rootKey, $E) ]
   -->
-  []
+  [ St_Verifier_2(ridV) ]
 
 rule ReceiveAuthorityEndorsement:
   let endBody = <'end_ext', auth, oi, rootKey>
   in
-  [ VerifyAuthorityEndorsements(~id, oi, rootKey, $E)
+  [ St_Verifier_1(ridV, ~id, oi, rootKey, $E)
   , Fr(~sess)
   , In(<authPk, endBody, endSignature>)
   , RootKeyVerified(auth, sha256(authPk)) ]
@@ -252,9 +271,36 @@ rule ReceiveAuthorityEndorsement:
     , Eq(verify(endSignature, endBody, authPk), true)
     , VerifiedAuthorityEndorsement(~id, auth, authPk, oi, rootKey)
     , UsedRootKey(auth, authPk) ]->
-  [ VerifyAuthorityEndorsements(~id, oi, rootKey, $E)
+  [ St_Verifier_1(ridV)
+  , VerifyAuthorityEndorsements(~id, oi, rootKey, $E)
   , Out(<'ENDORSED', auth>) ]
+  
 
+/* ------------------------- */
+/*   Lemmas and properties   */
+/* ------------------------- */
+
+// Certificate authorities
+lemma TLSKeyShareRecursion[use_induction,reuse]:
+  "All k #t1. TLSKeyShare(k) @ #t1 ==> Ex #t2. TLSKeyGen(k) @ #t2"
+
+lemma TLSKeyLeakRecursion[use_induction,reuse]:
+  "All k #t. CompromisedTLSKey(k) @ #t ==> Ex #x. TLSKeyGen(k) @ #x"
+
+lemma WrongCAKeyUseImpliesCompromise[reuse]:
+  "All tag m ca caSk #t1 #t2.
+        ( CASk(ca, caSk) @ #t1
+        & !KU(<<tag, m>, sign(<'tag', m>, caSk)>) @ #t2
+        & not (tag = 'cert'))
+    ==> (Ex #x. CompromisedCA(ca) @ #x & CompromisedParty(ca) @ #x)"
+
+// ADEM root keys
+lemma CanObtainRootKey:
+  exists-trace
+  " (Ex oi rootKeyHash #t. VerifiedRootKey(oi, rootKeyHash) @ #t)
+  & (not Ex #x. SomeCompromise() @ #x)"
+
+// ADEM endorsements and emblem distribution
 lemma CanReceiveEmblem:
   exists-trace
   " (Ex id oi asset assetKey rootKey authOi1 authOi2 authPk1 authPk2 p1 p2 #a #b #c #d #e #f.
@@ -274,6 +320,8 @@ lemma VerifiedAuthorityOrigin[reuse,use_induction]:
                 & VerifiedRootEndorsement(loop, p2, rk2) @ #t3
             ==> oi = p1 & p1 = p2 & #t2 = #t3 & rootKey = rk1 & rk1 = rk2))"
 
+/* Authentication: If an endorsed emblem is successfully verified then the emblem claims protection for an actually protected 
+    asset that belongs to the organization endorsed. */
 lemma AuthenticEmblem:
   "All id oi asset assetKey rootKey #t1 #t2.
         ( VerifiedEndorsed(id, oi, asset, assetKey) @ #t1
@@ -286,14 +334,11 @@ lemma AuthenticEmblem:
             ==> ( (Ex p #y #z. OI(p, authOI) @ #y & CompromisedADEMParty(p, authPk) @ #z)
                 | (not Ex p #y. IsRootPK(p, authOI, authPk) @ #y))))"
 
-rule MonitorLogs:
-  let cert = <'cert', $SigningCA, d, pkTLS>
-  in
-  [ !MHTLeaf($Log, <cert, sig>), !TLSKey($P, $CA, d, skTLS) ]
-  --[ Neq(pk(skTLS), pkTLS)
-    , Dispute($P, $Log, $SigningCA, d, pkTLS) ]->
-  []
-
+/* Accountability constraints:
+    (1) If a domain owner monitors a fraudulent certificate issued for their domain, then the signing CA misbehaved.
+    (2) If an authority endorsed a fraudulent public key, the authority misbehaved.
+    (3) If a PP endorsed a fraudulent public key, the PP misbehaved.
+*/
 lemma CanDisupte:
   exists-trace
   "Ex p log ca d pk #t. Dispute(p, log, ca, d, pk) @ #t"
