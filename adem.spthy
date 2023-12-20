@@ -217,62 +217,60 @@ rule Verifier_init:
     -->
     [ Setup_Verifier(~rid) ]
 
-rule ReceiveUnsignedEmblem:
-  [ Setup_Verifier(ridV), In(<'emblem', $E>) ]
-  -->
-  [ St_Verifier_2(ridV), Out(<'UNSIGNED', $E>) ]
-
 rule ReceiveInvalidEmblem:
   let emblemBody = <'emblem', tail>
   in
-  [ Setup_Verifier(ridV), In(<epk, emblemBody, emblemSignature>) ]
+  [ Setup_Verifier(~rid), In(<epk, emblemBody, emblemSignature>) ]
   --[ Neq(verify(emblemSignature, emblemBody, epk), true) ]->
-  [ St_Verifier_2(ridV), Out('INVALID') ]
+  [ St_Verifier_2(~rid), Out('INVALID') ]
+
+rule ReceiveUnsignedEmblem:
+  [ Setup_Verifier(~rid), In(<'emblem', $E>) ]
+  -->
+  [ St_Verifier_2(~rid), Out(<'UNSIGNED', $E>) ]
 
 rule ReceiveSignedEmblem:
   let emblemBody = <'emblem', $E>
   in
-  [ Setup_Verifier(ridV), In(<epk, emblemBody, emblemSignature>) ]
+  [ Setup_Verifier(~rid), In(<epk, emblemBody, emblemSignature>) ]
   --[ Eq(verify(emblemSignature, emblemBody, epk), true) ]->
-  [ St_Verifier_2(ridV), Out(<'SIGNED', $E>) ]
+  [ St_Verifier_2(~rid), Out(<'SIGNED', $E>) ]
 
 rule ReceiveOrganizationalEmblem:
   let emblemBody = <'emblem', $E, oi>
       body = <'end_int', oi, epk>
   in
-  [ Setup_Verifier(ridV) 
-  , Fr(~id)
+  [ Setup_Verifier(~rid) 
   , In(<epk, emblemBody, emblemSignature>)
   , In(<rootKey, body, signature>)
   , RootKeyVerified(oi, sha256(rootKey))
   ]
-  --[ VerifiedEndorsed(~id, oi, $E, epk)
-    , VerifiedRootEndorsement(~id, oi, rootKey)
+  --[ VerifiedEndorsed(~rid, oi, $E, epk)
+    , VerifiedRootEndorsement(~rid, oi, rootKey)
     , UsedRootKey(oi, rootKey)
     , Eq(verify(emblemSignature, emblemBody, epk), true)
     , Eq(verify(signature, body, rootKey), true) ]->
-  [ St_Verifier_1(ridV, ~id, oi, rootKey, $E)
+  [ St_Verifier_1(~rid, oi, rootKey, $E)
   , Out(<'ORGANIZATIONAL', oi, $E>) ]
 
 // Non-deterministically choose to terminate
 rule VerifyAuthorityEndorsementsTerminate:
-  [ St_Verifier_1(ridV, ~id, oi, rootKey, $E) ]
+  [ St_Verifier_1(~rid, oi, rootKey, $E) ]
   -->
-  [ St_Verifier_2(ridV) ]
+  [ St_Verifier_2(~rid) ]
 
 rule ReceiveAuthorityEndorsement:
   let endBody = <'end_ext', auth, oi, rootKey>
   in
-  [ St_Verifier_1(ridV, ~id, oi, rootKey, $E)
+  [ St_Verifier_1(~rid, oi, rootKey, $E)
   , Fr(~sess)
   , In(<authPk, endBody, endSignature>)
   , RootKeyVerified(auth, sha256(authPk)) ]
   --[ Neq(auth, oi)
     , Eq(verify(endSignature, endBody, authPk), true)
-    , VerifiedAuthorityEndorsement(~id, auth, authPk, oi, rootKey)
+    , VerifiedAuthorityEndorsement(~rid, auth, authPk, oi, rootKey)
     , UsedRootKey(auth, authPk) ]->
-  [ St_Verifier_1(ridV)
-  , VerifyAuthorityEndorsements(~id, oi, rootKey, $E)
+  [ St_Verifier_1(~rid, oi, rootKey, $E)
   , Out(<'ENDORSED', auth>) ]
   
 
