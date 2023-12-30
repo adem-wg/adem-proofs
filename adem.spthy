@@ -10,9 +10,9 @@ functions: tlsClientMsg/4, tlsServerMsg/4, tlsClientReceive/2,
   tlsServerReceive/2
 
 equations:
-  tlsClientReceive(tlsServerMsg(~sess, domain, ~sk, m), ~sess) = m
-, tlsServerReceive(tlsClientMsg(~sess, domain, pk(~sk), m), ~sk) = m
-, tlsServerReceive(tlsClientMsg(~sess, domain, pk(~sk), m), ~sk) = ~sess
+  tlsClientReceive(tlsServerMsg(~sess, d, ~sk, m), ~sess) = m
+, tlsServerReceive(tlsClientMsg(~sess, d, pk(~sk), m), ~sk) = m
+, tlsServerReceive(tlsClientMsg(~sess, d, pk(~sk), m), ~sk) = ~sess
 
 functions: sha256/1
 
@@ -89,16 +89,16 @@ rule CertificateRequest:
 /* -------------------------- */
 
 rule LogRegister:
-  []
+  [ Fr(~skCT) ]
   --[ IsLog($Log) ]->
-  [ !Log($Log) ]
+  [ !Log($Log, ~skCT) ]
 
 rule Submit:
   let certBody = <'cert', $CA, d, pk>
   in
-  [ !CA($CA, skCA), !Log($Log)
-  , In(<certBody, certSig>) ]
-  --[ Eq(verify(certSig, certBody, pk(skCA)), true)
+  [ !CA($CA, skCA), !Log($Log, skCT)
+  , In(<certBody, certSig>)
+  ]--[ Eq(verify(certSig, certBody, pk(skCA)), true)
     , Eq(fst(snd(certBody)), $CA)
     , LogInclusion($Log, <certBody, certSig>) ]->
   [ !MHTLeaf($Log, <certBody, certSig>) ]
@@ -109,6 +109,16 @@ rule AdversarialAppend:
     , CompromisedParty($Log)
     , SomeCompromise() ]->
   [ !MHTLeaf($Log, msg) ]
+
+rule MHTLeafReq:
+  let certBody = <'cert', $CA, d, pk>
+  in
+  [ !CA($CA, skCA), !Log($Log, skCT)
+  , !MHTLeaf($Log, <certBody, certSig>)
+  , In(<'MHTLeafReq', $Log, d>)
+  ]
+  --[ LeafReq($Log) ]->
+  [ Out(sign(<'MHTLeaf', $Log, <certBody, certSig>>, skCT)) ]
 
 
 /* ------------------------------- */
@@ -227,23 +237,33 @@ rule ReceiveOrganizationalEmblem:
       body = <'end_int', oi, epk>
   in
   [ Setup_Verifier(~rid) 
+  , !CA($CA, skCA), !Log($Log, skCT)
   , In(<epk, emblemBody, emblemSignature>)
   , In(<rootKey, body, signature>)
   ]
   -->
-  [ St_Verifier_1(~rid, <epk, emblemBody, emblemSignature>, <rootKey, body, signature>) ]
+  [ St_Verifier_1(~rid, <epk, emblemBody, emblemSignature>, <rootKey, body, signature>)
+  , Out(<'MHTLeafReq', $Log, oi>)
+  , Out(<'MHTLeafReq', $Log, <oi, sha256(rootKey)>>)
+  ]
 
 rule OrgRootKeyLearn:
   let emblemBody = <'emblem', $E, oi>
       body = <'end_int', oi, epk>
       rootKeyHash=sha256(rootKey)
       certOi = <'cert', $CA, oi, tlsPk>
+      certOiLeaf = <'MHTLeaf', $Log, <certOi, certOiSig>>
       certRootD = <'cert', $CA, <oi, rootKeyHash>, tlsPk>
+      certRootDLeaf = <'MHTLeaf', $Log, <certRootD, certRootDSig>>
   in
   [ St_Verifier_1(~rid, <epk, emblemBody, emblemSignature>, <rootKey, body, signature>)
-  , !CA($CA, skCA), !Log($Log)
-  , !MHTLeaf($Log, <certOi, certOiSig>), !MHTLeaf($Log, <certRootD, certRootDSig>) ]
-  --[ Eq(verify(certOiSig, certOi, pk(skCA)), true)
+  , !CA($CA, skCA), !Log($Log, skCT)
+  , In(<certOiLeaf, ctSigOi>)
+  , In(<certRootDLeaf, ctSigRootD>) 
+  ]
+  --[ Eq(verify(ctSigOi, certOiLeaf, pk(skCT)), true)
+    , Eq(verify(ctSigRootD, certRootDLeaf, pk(skCT)), true)
+    , Eq(verify(certOiSig, certOi, pk(skCA)), true)
     , Eq(verify(certRootDSig, certRootD, pk(skCA)), true)
     , VerifiedRootKey(oi, rootKeyHash)
     , RootCertVerified(<certRootD, certRootDSig>)
@@ -267,29 +287,39 @@ rule VerifyOrganizationalEmblem:
 
 // Non-deterministically choose to terminate
 rule VerifyAuthorityEndorsementsTerminate:
-  [ St_Verifier_6(~rid, oi, rootKey, $E) ]
+  [ St_Verifier_3(~rid, oi, rootKey, $E) ]
   -->
   [ St_Verifier_0(~rid) ]
 
 rule ReceiveAuthorityEndorsement:
   let endBody = <'end_ext', auth, oi, rootKey>
+      rootKeyHash = sha256(authPk)
   in
   [ St_Verifier_3(~rid, oi, rootKey, $E)
-  , Fr(~sess)
+  , !CA($CA, skCA), !Log($Log, skCT)
   , In(<authPk, endBody, endSignature>) ]
   -->
-  [ St_Verifier_4(~rid, oi, rootKey, $E, <authPk, endBody, endSignature>) ]
+  [ St_Verifier_4(~rid, oi, rootKey, $E, <authPk, endBody, endSignature>)
+  , Out(<'MHTLeafReq', $Log, auth>)
+  , Out(<'MHTLeafReq', $Log, <auth, rootKeyHash>>) 
+  ]
 
 rule AuthRootKeyLearn:
   let endBody = <'end_ext', auth, oi, rootKey>
       rootKeyHash = sha256(authPk)
       certOi = <'cert', $CA, auth, tlsPk>
+      certOiLeaf = <'MHTLeaf', $Log, <certOi, certOiSig>>
       certRootD = <'cert', $CA, <auth, rootKeyHash>, tlsPk>
+      certRootDLeaf = <'MHTLeaf', $Log, <certRootD, certRootDSig>>
   in
   [ St_Verifier_4(~rid, oi, rootKey, $E, <authPk, endBody, endSignature>)
-  , !CA($CA, skCA), !Log($Log)
-  , !MHTLeaf($Log, <certOi, certOiSig>), !MHTLeaf($Log, <certRootD, certRootDSig>) ]
-  --[ Eq(verify(certOiSig, certOi, pk(skCA)), true)
+  , !CA($CA, skCA), !Log($Log, skCT)
+  , In(<certOiLeaf, ctSigOi>)
+  , In(<certRootDLeaf, ctSigRootD>) 
+  ]
+  --[ Eq(verify(ctSigOi, certOiLeaf, pk(skCT)), true)
+    , Eq(verify(ctSigRootD, certRootDLeaf, pk(skCT)), true)
+    , Eq(verify(certOiSig, certOi, pk(skCA)), true)
     , Eq(verify(certRootDSig, certRootD, pk(skCA)), true)
     , VerifiedRootKey(auth, rootKeyHash)
     , RootCertVerified(<certRootD, certRootDSig>)
@@ -305,7 +335,7 @@ rule VerifyAuthorityEndorsement:
     , Eq(verify(endSignature, endBody, authPk), true)
     , VerifiedAuthorityEndorsement(~rid, auth, authPk, oi, rootKey)
     , UsedRootKey(auth, authPk) ]->
-  [ St_Verifier_6(~rid, oi, rootKey, $E)
+  [ St_Verifier_3(~rid, oi, rootKey, $E)
   , Out(<'ENDORSED', auth>) ]
 
 
