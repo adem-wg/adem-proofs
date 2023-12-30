@@ -10,9 +10,9 @@ functions: tlsClientMsg/4, tlsServerMsg/4, tlsClientReceive/2,
   tlsServerReceive/2
 
 equations:
-  tlsClientReceive(tlsServerMsg(~sess, d, ~sk, m), ~sess) = m
-, tlsServerReceive(tlsClientMsg(~sess, d, pk(~sk), m), ~sk) = m
-, tlsServerReceive(tlsClientMsg(~sess, d, pk(~sk), m), ~sk) = ~sess
+  tlsClientReceive(tlsServerMsg(sess, d, sk, m), sess) = m
+, tlsServerReceive(tlsClientMsg(sess, d, pk(sk), m), sk) = m
+, tlsServerReceive(tlsClientMsg(sess, d, pk(sk), m), sk) = sess
 
 functions: sha256/1
 
