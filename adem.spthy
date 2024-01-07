@@ -213,12 +213,28 @@ rule Verifier_init:
     -->
     [ Setup_Verifier(~rid) ]
 
+rule ReceiveNoEmblem:
+  [ Setup_Verifier(~rid) ]
+  -->
+  [ St_Verifier_0(~rid), Out('INVALID') ]
+
 rule ReceiveInvalidEmblem:
   let emblemBody = <'emblem', tail>
   in
   [ Setup_Verifier(~rid), In(<epk, emblemBody, emblemSignature>) ]
   --[ Neq(verify(emblemSignature, emblemBody, epk), true) ]->
   [ St_Verifier_0(~rid), Out('INVALID') ]
+
+rule ReceiveMultipleEmblem:
+  let emblemBody0 = <'emblem', $E0>
+      emblemBody1 = <'emblem', $E1>
+  in
+  [ Setup_Verifier(~rid)
+  , In(<epk0, emblemBody0, emblemSignature0>)
+  , In(<epk1, emblemBody1, emblemSignature1>) ]
+  --[ Eq(verify(emblemSignature0, emblemBody0, epk0), true)
+    , Eq(verify(emblemSignature1, emblemBody1, epk1), true) ]->
+  [ St_Verifier_0(~rid), Out(<'INVALID'>) ]
 
 rule ReceiveUnsignedEmblem:
   [ Setup_Verifier(~rid), In(<'emblem', $E>) ]
@@ -230,33 +246,33 @@ rule ReceiveSignedEmblem:
   in
   [ Setup_Verifier(~rid), In(<epk, emblemBody, emblemSignature>) ]
   --[ Eq(verify(emblemSignature, emblemBody, epk), true) ]->
-  [ St_Verifier_0(~rid), Out(<'SIGNED', $E>) ]
+  [ St_Verifier_1(~rid), Out(<'SIGNED', $E>) ]
 
 rule ReceiveOrganizationalEmblem:
   let emblemBody = <'emblem', $E, oi>
-      body = <'end_int', oi, epk>
+      endBody = <'end_int', oi, epk>
   in
   [ Setup_Verifier(~rid) 
   , !CA($CA, skCA), !Log($Log, skCT)
   , In(<epk, emblemBody, emblemSignature>)
-  , In(<rootKey, body, signature>)
+  , In(<rootKey, endBody, endSignature>)
   ]
   -->
-  [ St_Verifier_1(~rid, <epk, emblemBody, emblemSignature>, <rootKey, body, signature>)
+  [ St_Verifier_1(~rid, <epk, emblemBody, emblemSignature>, <rootKey, endBody, endSignature>)
   , Out(<'MHTLeafReq', $Log, oi>)
   , Out(<'MHTLeafReq', $Log, <oi, sha256(rootKey)>>)
   ]
 
 rule OrgRootKeyLearn:
   let emblemBody = <'emblem', $E, oi>
-      body = <'end_int', oi, epk>
+      endBody = <'end_int', oi, epk>
       rootKeyHash=sha256(rootKey)
       certOi = <'cert', $CA, oi, tlsPk>
       certOiLeaf = <'MHTLeaf', $Log, <certOi, certOiSig>>
       certRootD = <'cert', $CA, <oi, rootKeyHash>, tlsPk>
       certRootDLeaf = <'MHTLeaf', $Log, <certRootD, certRootDSig>>
   in
-  [ St_Verifier_1(~rid, <epk, emblemBody, emblemSignature>, <rootKey, body, signature>)
+  [ St_Verifier_1(~rid, <epk, emblemBody, emblemSignature>, <rootKey, endBody, endSignature>)
   , !CA($CA, skCA), !Log($Log, skCT)
   , In(<certOiLeaf, ctSigOi>)
   , In(<certRootDLeaf, ctSigRootD>) 
