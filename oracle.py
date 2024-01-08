@@ -43,10 +43,6 @@ if argv[1] in ['CanObtainRootKey', 'CanReceiveEmblem']:
     'tlsClientMsg',
     'tlsServerMsg',
   ], lines)
-elif argv[1] == 'VerifiedAuthorityOrigin':
-  match = matchAgainstList([
-    'VerifyEndorsements',
-  ], lines)
 elif argv[1] == 'AuthenticEmblem':
   match = matchAgainstList([
     re.compile(r'!Ltk\( .*, ~'),
@@ -83,17 +79,6 @@ elif argv[1] == 'PPAccountability':
   ], lines)
 elif argv[1] == 'RootKeyUse':
   match = matchAgainstList(['RootKeyResponse'], lines)
-elif argv[1] == 'CertBindingIsImpliedAuthority':
-  match = matchAgainstList([
-    re.compile(r'VerifyAuthoritySetup\(.+,\s*\$OI,'),
-    'RootKeyResponse',
-  ], lines)
-elif argv[1] == 'CertBindingIsImpliedPP':
-  match = matchAgainstList([
-    'RootDomains',
-    'VerifyEndorsements',
-    'RootKeyResponse',
-  ], lines)
 elif argv[1] == 'RootKeyUse':
   match = matchAgainstList([
     'UsedRootKey',
