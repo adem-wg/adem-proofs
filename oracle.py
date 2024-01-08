@@ -79,11 +79,6 @@ elif argv[1] == 'PPAccountability':
   ], lines)
 elif argv[1] == 'RootKeyUse':
   match = matchAgainstList(['RootKeyResponse'], lines)
-elif argv[1] == 'RootKeyUse':
-  match = matchAgainstList([
-    'UsedRootKey',
-    'RootKeyVerified',
-  ], lines)
 
 if match is not None:
   print(match)
