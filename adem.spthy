@@ -285,7 +285,7 @@ rule OrgRootKeyLearn:
     , RootCertVerified(<certRootD, certRootDSig>)
     , LogInclusionVerified($Log, certOi)
     , LogInclusionVerified($Log, certRootD) ]->
-  [ St_Verifier_2(~rid, <epk, emblemBody, emblemSignature>, <rootKey, body, signature>) ]
+  [ St_Verifier_2(~rid, <epk, emblemBody, emblemSignature>, <rootKey, endBody, endSignature>) ]
 
 rule VerifyOrganizationalEmblem:
   let emblemBody = <'emblem', $E, oi>
