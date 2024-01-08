@@ -246,7 +246,7 @@ rule ReceiveSignedEmblem:
   in
   [ Setup_Verifier(~rid), In(<epk, emblemBody, emblemSignature>) ]
   --[ Eq(verify(emblemSignature, emblemBody, epk), true) ]->
-  [ St_Verifier_1(~rid), Out(<'SIGNED', $E>) ]
+  [ St_Verifier_0(~rid), Out(<'SIGNED', $E>) ]
 
 rule ReceiveOrganizationalEmblem:
   let emblemBody = <'emblem', $E, oi>
