@@ -45,7 +45,11 @@ if argv[1] in ['CanObtainRootKey', 'CanReceiveEmblem']:
   ], lines)
 elif argv[1] == 'VerifiedAuthorityOrigin':
   match = matchAgainstList([
-    'VerifyEndorsements',
+    'last',
+    '∀',
+    'St_Verifier_5',
+    'St_Verifier_2',
+    'St_Verifier_3',
   ], lines)
 elif argv[1] == 'AuthenticEmblem':
   match = matchAgainstList([
@@ -82,7 +86,13 @@ elif argv[1] == 'PPAccountability':
     '!KU( ~rootKey',
   ], lines)
 elif argv[1] == 'RootKeyUse':
-  match = matchAgainstList(['RootKeyResponse'], lines)
+  match = matchAgainstList([
+    'St_Verifier_5',
+    '!KU( ~skCT',
+    '!KU( sign(<\'MHTLeaf\'',
+    'UsedRootKey',
+    'RootKeyVerified',
+  ], lines)
 elif argv[1] == 'CertBindingIsImpliedAuthority':
   match = matchAgainstList([
     re.compile(r'VerifyAuthoritySetup\(.+,\s*\$OI,'),
@@ -93,11 +103,6 @@ elif argv[1] == 'CertBindingIsImpliedPP':
     'RootDomains',
     'VerifyEndorsements',
     'RootKeyResponse',
-  ], lines)
-elif argv[1] == 'RootKeyUse':
-  match = matchAgainstList([
-    'UsedRootKey',
-    'RootKeyVerified',
   ], lines)
 
 if match is not None:
