@@ -34,13 +34,13 @@ rule SubdomainRegister:
   [ DomainRegister($A, <d, sub>), !DomainOwner($A, d) ]
   --[ OnlyOnce(<'domain_register', <d, sub>>) ]->
   [ !DomainOwner($A, <d, sub>) ]
-  
+
   rule DomainCompromise:
   [ In($A), In(d) ]
   --[ CompromisedDomainOwner($A)
     , SomeCompromise() ]->
     [ DomainRegister($A, d) ]
-    
+
 /* ---------------------- */
 /*   Protocol rules: CAs  */
 /* ---------------------- */
@@ -209,19 +209,24 @@ rule SendEmblem:
 /* ---------------------------- */
 
 rule Verifier_init:
-    [ Fr(~rid) ]
-    -->
-    [ Setup_Verifier(~rid) ]
+  [ Fr(~rid) ]
+  -->
+  [ Setup_Verifier(~rid) ]
+
+rule Verifier_Init_2:
+  [ Setup_Verifier(~rid) ]
+  -->
+  [ St_Verifier_1(~rid) ]
 
 rule ReceiveNoEmblem:
-  [ Setup_Verifier(~rid) ]
+  [ St_Verifier_1(~rid) ]
   -->
   [ St_Verifier_0(~rid), Out('INVALID') ]
 
 rule ReceiveInvalidEmblem:
   let emblemBody = <'emblem', tail>
   in
-  [ Setup_Verifier(~rid), In(<epk, emblemBody, emblemSignature>) ]
+  [ St_Verifier_1(~rid), In(<epk, emblemBody, emblemSignature>) ]
   --[ Neq(verify(emblemSignature, emblemBody, epk), true) ]->
   [ St_Verifier_0(~rid), Out('INVALID') ]
 
@@ -229,7 +234,7 @@ rule ReceiveMultipleEmblem:
   let emblemBody0 = <'emblem', $E0>
       emblemBody1 = <'emblem', $E1>
   in
-  [ Setup_Verifier(~rid)
+  [ St_Verifier_1(~rid)
   , In(<epk0, emblemBody0, emblemSignature0>)
   , In(<epk1, emblemBody1, emblemSignature1>) ]
   --[ Eq(verify(emblemSignature0, emblemBody0, epk0), true)
@@ -237,14 +242,14 @@ rule ReceiveMultipleEmblem:
   [ St_Verifier_0(~rid), Out(<'INVALID'>) ]
 
 rule ReceiveUnsignedEmblem:
-  [ Setup_Verifier(~rid), In(<'emblem', $E>) ]
+  [ St_Verifier_1(~rid), In(<'emblem', $E>) ]
   -->
   [ St_Verifier_0(~rid), Out(<'UNSIGNED', $E>) ]
 
 rule ReceiveSignedEmblem:
   let emblemBody = <'emblem', $E>
   in
-  [ Setup_Verifier(~rid), In(<epk, emblemBody, emblemSignature>) ]
+  [ St_Verifier_1(~rid), In(<epk, emblemBody, emblemSignature>) ]
   --[ Eq(verify(emblemSignature, emblemBody, epk), true) ]->
   [ St_Verifier_0(~rid), Out(<'SIGNED', $E>) ]
 
@@ -252,16 +257,16 @@ rule ReceiveOrganizationalEmblem:
   let emblemBody = <'emblem', $E, oi>
       endBody = <'end_int', oi, epk>
   in
-  [ Setup_Verifier(~rid) 
+  [ St_Verifier_1(~rid)
   , !CA($CA, skCA), !Log($Log, skCT)
   , In(<epk, emblemBody, emblemSignature>)
   , In(<rootKey, endBody, endSignature>)
   ]
   -->
-  [ St_Verifier_1(~rid, <epk, emblemBody, emblemSignature>, <rootKey, endBody, endSignature>)
+  [ St_Verifier_3(~rid, <epk, emblemBody, emblemSignature>, <rootKey, endBody, endSignature>)
+  , !PermitAuthorityVerification(~rid, oi, rootKey, $E)
   , Out(<'MHTLeafReq', $Log, oi>)
-  , Out(<'MHTLeafReq', $Log, <oi, sha256(rootKey)>>)
-  ]
+  , Out(<'MHTLeafReq', $Log, <oi, sha256(rootKey)>>) ]
 
 rule OrgRootKeyLearn:
   let emblemBody = <'emblem', $E, oi>
@@ -272,10 +277,10 @@ rule OrgRootKeyLearn:
       certRootD = <'cert', $CA, <oi, rootKeyHash>, tlsPk>
       certRootDLeaf = <'MHTLeaf', $Log, <certRootD, certRootDSig>>
   in
-  [ St_Verifier_1(~rid, <epk, emblemBody, emblemSignature>, <rootKey, endBody, endSignature>)
+  [ St_Verifier_3(~rid, <epk, emblemBody, emblemSignature>, <rootKey, endBody, endSignature>)
   , !CA($CA, skCA), !Log($Log, skCT)
   , In(<certOiLeaf, ctSigOi>)
-  , In(<certRootDLeaf, ctSigRootD>) 
+  , In(<certRootDLeaf, ctSigRootD>)
   ]
   --[ Eq(verify(ctSigOi, certOiLeaf, pk(skCT)), true)
     , Eq(verify(ctSigRootD, certRootDLeaf, pk(skCT)), true)
@@ -285,25 +290,25 @@ rule OrgRootKeyLearn:
     , RootCertVerified(<certRootD, certRootDSig>)
     , LogInclusionVerified($Log, certOi)
     , LogInclusionVerified($Log, certRootD) ]->
-  [ St_Verifier_2(~rid, <epk, emblemBody, emblemSignature>, <rootKey, endBody, endSignature>) ]
+  [ St_Verifier_4(~rid, <epk, emblemBody, emblemSignature>, <rootKey, endBody, endSignature>) ]
 
 rule VerifyOrganizationalEmblem:
   let emblemBody = <'emblem', $E, oi>
       body = <'end_int', oi, epk>
   in
-  [ St_Verifier_2(~rid, <epk, emblemBody, emblemSignature>, <rootKey, body, signature>) ]
+  [ St_Verifier_4(~rid, <epk, emblemBody, emblemSignature>, <rootKey, body, signature>) ]
   --[ VerifiedEndorsed(~rid, oi, $E, epk)
     , VerifiedRootEndorsement(~rid, oi, rootKey)
     , UsedRootKey(oi, rootKey)
     , Eq(verify(emblemSignature, emblemBody, epk), true)
     , Eq(verify(signature, body, rootKey), true) ]->
-  [ St_Verifier_3(~rid, oi, rootKey, $E)
+  [ St_Verifier_5(~rid, oi, rootKey, $E)
   , Out(<'SIGNED', $E>)
   , Out(<'ORGANIZATIONAL', oi, $E>) ]
 
 // Non-deterministically choose to terminate
 rule VerifyAuthorityEndorsementsTerminate:
-  [ St_Verifier_3(~rid, oi, rootKey, $E) ]
+  [ !PermitAuthorityVerification(~rid, oi, rootKey, $E) ]
   -->
   [ St_Verifier_0(~rid) ]
 
@@ -311,14 +316,13 @@ rule ReceiveAuthorityEndorsement:
   let endBody = <'end_ext', auth, oi, rootKey>
       rootKeyHash = sha256(authPk)
   in
-  [ St_Verifier_3(~rid, oi, rootKey, $E)
+  [ !PermitAuthorityVerification(~rid, oi, rootKey, $E)
   , !CA($CA, skCA), !Log($Log, skCT)
   , In(<authPk, endBody, endSignature>) ]
   -->
-  [ St_Verifier_4(~rid, oi, rootKey, $E, <authPk, endBody, endSignature>)
+  [ St_Verifier_7(~rid, oi, rootKey, $E, <authPk, endBody, endSignature>)
   , Out(<'MHTLeafReq', $Log, auth>)
-  , Out(<'MHTLeafReq', $Log, <auth, rootKeyHash>>) 
-  ]
+  , Out(<'MHTLeafReq', $Log, <auth, rootKeyHash>>) ]
 
 rule AuthRootKeyLearn:
   let endBody = <'end_ext', auth, oi, rootKey>
@@ -328,10 +332,10 @@ rule AuthRootKeyLearn:
       certRootD = <'cert', $CA, <auth, rootKeyHash>, tlsPk>
       certRootDLeaf = <'MHTLeaf', $Log, <certRootD, certRootDSig>>
   in
-  [ St_Verifier_4(~rid, oi, rootKey, $E, <authPk, endBody, endSignature>)
+  [ St_Verifier_7(~rid, oi, rootKey, $E, <authPk, endBody, endSignature>)
   , !CA($CA, skCA), !Log($Log, skCT)
   , In(<certOiLeaf, ctSigOi>)
-  , In(<certRootDLeaf, ctSigRootD>) 
+  , In(<certRootDLeaf, ctSigRootD>)
   ]
   --[ Eq(verify(ctSigOi, certOiLeaf, pk(skCT)), true)
     , Eq(verify(ctSigRootD, certRootDLeaf, pk(skCT)), true)
@@ -341,18 +345,17 @@ rule AuthRootKeyLearn:
     , RootCertVerified(<certRootD, certRootDSig>)
     , LogInclusionVerified($Log, certOi)
     , LogInclusionVerified($Log, certRootD) ]->
-  [ St_Verifier_5(~rid, oi, rootKey, $E, <authPk, endBody, endSignature>) ]
-  
+  [ St_Verifier_8(~rid, oi, rootKey, $E, <authPk, endBody, endSignature>) ]
+
 rule VerifyAuthorityEndorsement:
   let endBody = <'end_ext', auth, oi, rootKey>
   in
-  [ St_Verifier_5(~rid, oi, rootKey, $E, <authPk, endBody, endSignature>) ]
+  [ St_Verifier_8(~rid, oi, rootKey, $E, <authPk, endBody, endSignature>) ]
   --[ Neq(auth, oi)
     , Eq(verify(endSignature, endBody, authPk), true)
     , VerifiedAuthorityEndorsement(~rid, auth, authPk, oi, rootKey)
     , UsedRootKey(auth, authPk) ]->
-  [ St_Verifier_3(~rid, oi, rootKey, $E)
-  , Out(<'ENDORSED', auth>) ]
+  [ Out(<'ENDORSED', auth>) ]
 
 
 /* ------------------------- */
@@ -399,7 +402,7 @@ lemma VerifiedAuthorityOrigin[reuse,use_induction]:
                 & VerifiedRootEndorsement(loop, p2, rk2) @ #t3
             ==> oi = p1 & p1 = p2 & #t2 = #t3 & rootKey = rk1 & rk1 = rk2))"
 
-/* Authentication: If an endorsed emblem is successfully verified then the emblem claims protection for an actually protected 
+/* Authentication: If an endorsed emblem is successfully verified then the emblem claims protection for an actually protected
     asset that belongs to the organization endorsed. */
 lemma AuthenticEmblem:
   "All id oi asset assetKey rootKey #t1 #t2.
