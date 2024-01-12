@@ -213,33 +213,10 @@ rule Verifier_init:
   -->
   [ Setup_Verifier(~rid) ]
 
-rule Verifier_Init_2:
+rule Invalid:
   [ Setup_Verifier(~rid) ]
   -->
-  [ St_Verifier_1(~rid) ]
-
-rule ReceiveNoEmblem:
-  [ St_Verifier_1(~rid) ]
-  -->
   [ St_Verifier_0(~rid), Out('INVALID') ]
-
-rule ReceiveInvalidEmblem:
-  let emblemBody = <'emblem', tail>
-  in
-  [ St_Verifier_1(~rid), In(<epk, emblemBody, emblemSignature>) ]
-  --[ Neq(verify(emblemSignature, emblemBody, epk), true) ]->
-  [ St_Verifier_0(~rid), Out('INVALID') ]
-
-rule ReceiveMultipleEmblem:
-  let emblemBody0 = <'emblem', $E0>
-      emblemBody1 = <'emblem', $E1>
-  in
-  [ St_Verifier_1(~rid)
-  , In(<epk0, emblemBody0, emblemSignature0>)
-  , In(<epk1, emblemBody1, emblemSignature1>) ]
-  --[ Eq(verify(emblemSignature0, emblemBody0, epk0), true)
-    , Eq(verify(emblemSignature1, emblemBody1, epk1), true) ]->
-  [ St_Verifier_0(~rid), Out(<'INVALID'>) ]
 
 rule ReceiveUnsignedEmblem:
   [ St_Verifier_1(~rid), In(<'emblem', $E>) ]
