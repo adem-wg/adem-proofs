@@ -219,14 +219,14 @@ rule Invalid:
   [ St_Verifier_0(~rid), Out('INVALID') ]
 
 rule ReceiveUnsignedEmblem:
-  [ St_Verifier_1(~rid), In(<'emblem', $E>) ]
+  [ Setup_Verifier(~rid), In(<'emblem', $E>) ]
   -->
   [ St_Verifier_0(~rid), Out(<'UNSIGNED', $E>) ]
 
 rule ReceiveSignedEmblem:
   let emblemBody = <'emblem', $E>
   in
-  [ St_Verifier_1(~rid), In(<epk, emblemBody, emblemSignature>) ]
+  [ Setup_Verifier(~rid), In(<epk, emblemBody, emblemSignature>) ]
   --[ Eq(verify(emblemSignature, emblemBody, epk), true) ]->
   [ St_Verifier_0(~rid), Out(<'SIGNED', $E>) ]
 
@@ -234,18 +234,16 @@ rule ReceiveOrganizationalEmblem:
   let emblemBody = <'emblem', $E, oi>
       endBody = <'end_int', oi, epk>
   in
-  [ St_Verifier_1(~rid)
+  [ Setup_Verifier(~rid)
   , !CA($CA, skCA), !Log($Log, skCT)
   , In(<epk, emblemBody, emblemSignature>)
   , In(<rootKey, endBody, endSignature>)
   ]
   -->
-  [ St_Verifier_3(~rid, <epk, emblemBody, emblemSignature>, <rootKey, endBody, endSignature>)
-  , !PermitAuthorityVerification(~rid, oi, rootKey, $E)
-  , Out(<'MHTLeafReq', $Log, oi>)
-  , Out(<'MHTLeafReq', $Log, <oi, sha256(rootKey)>>) ]
+  [ St_Verifier_1(~rid, <epk, emblemBody, emblemSignature>, <rootKey, endBody, endSignature>)
+  , !PermitAuthorityVerification(oi, rootKey, $E) ]
 
-rule OrgRootKeyLearn:
+rule VerifyOrganizationalEmblem:
   let emblemBody = <'emblem', $E, oi>
       endBody = <'end_int', oi, epk>
       rootKeyHash=sha256(rootKey)
@@ -254,7 +252,7 @@ rule OrgRootKeyLearn:
       certRootD = <'cert', $CA, <oi, rootKeyHash>, tlsPk>
       certRootDLeaf = <'MHTLeaf', $Log, <certRootD, certRootDSig>>
   in
-  [ St_Verifier_3(~rid, <epk, emblemBody, emblemSignature>, <rootKey, endBody, endSignature>)
+  [ St_Verifier_1(~rid, <epk, emblemBody, emblemSignature>, <rootKey, endBody, endSignature>)
   , !CA($CA, skCA), !Log($Log, skCT)
   , In(<certOiLeaf, ctSigOi>)
   , In(<certRootDLeaf, ctSigRootD>)
@@ -263,45 +261,22 @@ rule OrgRootKeyLearn:
     , Eq(verify(ctSigRootD, certRootDLeaf, pk(skCT)), true)
     , Eq(verify(certOiSig, certOi, pk(skCA)), true)
     , Eq(verify(certRootDSig, certRootD, pk(skCA)), true)
-    , VerifiedRootKey(oi, rootKeyHash)
-    , RootCertVerified(<certRootD, certRootDSig>)
-    , LogInclusionVerified($Log, certOi)
-    , LogInclusionVerified($Log, certRootD) ]->
-  [ St_Verifier_4(~rid, <epk, emblemBody, emblemSignature>, <rootKey, endBody, endSignature>) ]
-
-rule VerifyOrganizationalEmblem:
-  let emblemBody = <'emblem', $E, oi>
-      body = <'end_int', oi, epk>
-  in
-  [ St_Verifier_4(~rid, <epk, emblemBody, emblemSignature>, <rootKey, body, signature>) ]
-  --[ VerifiedEndorsed(~rid, oi, $E, epk)
-    , VerifiedRootEndorsement(~rid, oi, rootKey)
-    , UsedRootKey(oi, rootKey)
     , Eq(verify(emblemSignature, emblemBody, epk), true)
-    , Eq(verify(signature, body, rootKey), true) ]->
-  [ St_Verifier_5(~rid, oi, rootKey, $E)
+    , Eq(verify(endSignature, endBody, rootKey), true)
+    , VerifiedRootKey(oi, rootKeyHash)
+    , VerifiedEndorsed(~rid, oi, $E, epk)
+    , VerifiedRootEndorsement(~rid, oi, rootKey)
+    , UsedRootKey(oi, rootKey) ]->
+  [ St_Verifier_2(~rid, oi, rootKey, $E)
   , Out(<'SIGNED', $E>)
   , Out(<'ORGANIZATIONAL', oi, $E>) ]
 
-// Non-deterministically choose to terminate
-rule VerifyAuthorityEndorsementsTerminate:
-  [ !PermitAuthorityVerification(~rid, oi, rootKey, $E) ]
+rule VerifyAuthorityEndorsementRoleInit:
+  [ Fr(~rid), !PermitAuthorityVerification(oi, rootKey, $E) ]
   -->
-  [ St_Verifier_0(~rid) ]
+  [ Setup_AuthorityVerifier(~rid, oi, rootKey, $E) ]
 
-rule ReceiveAuthorityEndorsement:
-  let endBody = <'end_ext', auth, oi, rootKey>
-      rootKeyHash = sha256(authPk)
-  in
-  [ !PermitAuthorityVerification(~rid, oi, rootKey, $E)
-  , !CA($CA, skCA), !Log($Log, skCT)
-  , In(<authPk, endBody, endSignature>) ]
-  -->
-  [ St_Verifier_7(~rid, oi, rootKey, $E, <authPk, endBody, endSignature>)
-  , Out(<'MHTLeafReq', $Log, auth>)
-  , Out(<'MHTLeafReq', $Log, <auth, rootKeyHash>>) ]
-
-rule AuthRootKeyLearn:
+rule VerifyAuthorityEndorsement:
   let endBody = <'end_ext', auth, oi, rootKey>
       rootKeyHash = sha256(authPk)
       certOi = <'cert', $CA, auth, tlsPk>
@@ -309,31 +284,33 @@ rule AuthRootKeyLearn:
       certRootD = <'cert', $CA, <auth, rootKeyHash>, tlsPk>
       certRootDLeaf = <'MHTLeaf', $Log, <certRootD, certRootDSig>>
   in
-  [ St_Verifier_7(~rid, oi, rootKey, $E, <authPk, endBody, endSignature>)
+  [ Setup_AuthorityVerifier(~rid, oi, rootKey, $E)
   , !CA($CA, skCA), !Log($Log, skCT)
+  , !CA($CA, skCA), !Log($Log, skCT)
+  , In(<authPk, endBody, endSignature>)
   , In(<certOiLeaf, ctSigOi>)
-  , In(<certRootDLeaf, ctSigRootD>)
-  ]
-  --[ Eq(verify(ctSigOi, certOiLeaf, pk(skCT)), true)
+  , In(<certRootDLeaf, ctSigRootD>) ]
+  --[ Eq(verify(endSignature, endBody, authPk), true)
+    , Eq(verify(ctSigOi, certOiLeaf, pk(skCT)), true)
     , Eq(verify(ctSigRootD, certRootDLeaf, pk(skCT)), true)
     , Eq(verify(certOiSig, certOi, pk(skCA)), true)
     , Eq(verify(certRootDSig, certRootD, pk(skCA)), true)
+    , Neq(auth, oi)
     , VerifiedRootKey(auth, rootKeyHash)
-    , RootCertVerified(<certRootD, certRootDSig>)
-    , LogInclusionVerified($Log, certOi)
-    , LogInclusionVerified($Log, certRootD) ]->
-  [ St_Verifier_8(~rid, oi, rootKey, $E, <authPk, endBody, endSignature>) ]
+    , UsedRootKey(auth, authPk)  ]->
+  [ St_AuthorityVerifier_0(~rid)
+  , !AuthorityVerificationFinished(oi, rootKey, $E, auth, authPk) ]
 
-rule VerifyAuthorityEndorsement:
-  let endBody = <'end_ext', auth, oi, rootKey>
-  in
-  [ St_Verifier_8(~rid, oi, rootKey, $E, <authPk, endBody, endSignature>) ]
-  --[ Neq(auth, oi)
-    , Eq(verify(endSignature, endBody, authPk), true)
-    , VerifiedAuthorityEndorsement(~rid, auth, authPk, oi, rootKey)
-    , UsedRootKey(auth, authPk) ]->
-  [ Out(<'ENDORSED', auth>) ]
+rule VerifyAuthorityEndorsementsOut:
+  [ St_Verifier_2(~rid, oi, rootKey, $E), !AuthorityVerificationFinished(oi, rootKey, $E, auth, authPk) ]
+  --[ VerifiedAuthorityEndorsement(~rid, auth, authPk, oi, rootKey) ]->
+  [ St_Verifier_2(~rid, oi, rootKey, $E)
+  , Out(<'ENDORSED', auth>) ]
 
+rule VerifyAuthorityEndorsementsTerminate:
+  [ St_Verifier_2(~rid, oi, rootKey, $E) ]
+  -->
+  [ St_Verifier_0(~rid) ]
 
 /* ------------------------- */
 /*   Lemmas and properties   */
