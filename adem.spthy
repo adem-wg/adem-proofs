@@ -241,7 +241,12 @@ rule ReceiveOrganizationalEmblem:
   ]
   -->
   [ St_Verifier_1(~rid, <epk, emblemBody, emblemSignature>, <rootKey, endBody, endSignature>)
-  , !PermitAuthorityVerification(oi, rootKey, $E) ]
+  , PermitAuthorityVerificationOut(oi, rootKey, $E) ]
+
+rule TransformPermitAuthorityVerification:
+    [ PermitAuthorityVerificationOut(oi, rootKey, $E) ]
+    -->
+    [ PermitAuthorityVerificationIn(oi, rootKey, $E) ]
 
 rule VerifyOrganizationalEmblem:
   let emblemBody = <'emblem', $E, oi>
@@ -272,7 +277,7 @@ rule VerifyOrganizationalEmblem:
   , Out(<'ORGANIZATIONAL', oi, $E>) ]
 
 rule VerifyAuthorityEndorsementRoleInit:
-  [ Fr(~rid), !PermitAuthorityVerification(oi, rootKey, $E) ]
+  [ Fr(~rid), PermitAuthorityVerificationIn(oi, rootKey, $E) ]
   -->
   [ Setup_AuthorityVerifier(~rid, oi, rootKey, $E) ]
 
@@ -299,10 +304,15 @@ rule VerifyAuthorityEndorsement:
     , VerifiedRootKey(auth, rootKeyHash)
     , UsedRootKey(auth, authPk)  ]->
   [ St_AuthorityVerifier_0(~rid)
-  , !AuthorityVerificationFinished(oi, rootKey, $E, auth, authPk) ]
+  , AuthorityVerificationFinishedOut(oi, rootKey, $E, auth, authPk) ]
+
+rule TransformAuthorityVerificationFinished:
+    [ AuthorityVerificationFinishedOut(oi, rootKey, $E, auth, authPk) ]
+    -->
+    [ AuthorityVerificationFinishedIn(oi, rootKey, $E, auth, authPk) ]
 
 rule VerifyAuthorityEndorsementsOut:
-  [ St_Verifier_2(~rid, oi, rootKey, $E), !AuthorityVerificationFinished(oi, rootKey, $E, auth, authPk) ]
+  [ St_Verifier_2(~rid, oi, rootKey, $E), AuthorityVerificationFinishedIn(oi, rootKey, $E, auth, authPk) ]
   --[ VerifiedAuthorityEndorsement(~rid, auth, authPk, oi, rootKey) ]->
   [ St_Verifier_2(~rid, oi, rootKey, $E)
   , Out(<'ENDORSED', auth>) ]
