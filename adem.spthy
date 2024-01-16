@@ -114,9 +114,7 @@ rule MHTLeafReq:
   let certBody = <'cert', $CA, d, pk>
   in
   [ !CA($CA, skCA), !Log($Log, skCT)
-  , !MHTLeaf($Log, <certBody, certSig>)
-  , In(<'MHTLeafReq', $Log, d>)
-  ]
+  , !MHTLeaf($Log, <certBody, certSig>) ]
   --[ LeafReq($Log) ]->
   [ Out(sign(<'MHTLeaf', $Log, <certBody, certSig>>, skCT)) ]
 
