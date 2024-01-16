@@ -241,10 +241,15 @@ rule ReceiveOrganizationalEmblem:
   ]
   -->
   [ St_Verifier_1(~rid, <epk, emblemBody, emblemSignature>, <rootKey, endBody, endSignature>)
-  , !PermitAuthorityVerificationOut(oi, rootKey, $E) ]
+  , PermitAuthorityVerificationOut(oi, rootKey, $E) ]
 
-rule TransformPermitAuthorityVerification:
-    [ !PermitAuthorityVerificationOut(oi, rootKey, $E) ]
+rule PersistPermitAuthorityVerification:
+  [ PermitAuthorityVerificationOut(oi, rootKey, $E) ]
+  -->
+  [ !PermitAuthorityVerification(oi, rootKey, $E) ]
+
+rule LinearizePermitAuthorityVerification:
+    [ !PermitAuthorityVerification(oi, rootKey, $E) ]
     -->
     [ PermitAuthorityVerificationIn(oi, rootKey, $E) ]
 
@@ -306,8 +311,13 @@ rule VerifyAuthorityEndorsement:
   [ St_AuthorityVerifier_0(~rid)
   , AuthorityVerificationFinishedOut(oi, rootKey, $E, auth, authPk) ]
 
-rule TransformAuthorityVerificationFinished:
-    [ AuthorityVerificationFinishedOut(oi, rootKey, $E, auth, authPk) ]
+rule PersistAuthorityVerificationFinished:
+  [ AuthorityVerificationFinishedOut(oi, rootKey, $E, auth, authPk) ]
+  -->
+  [ !AuthorityVerificationFinished(oi, rootKey, $E, auth, authPk) ]
+
+rule LinearizeAuthorityVerificationFinished:
+    [ !AuthorityVerificationFinished(oi, rootKey, $E, auth, authPk) ]
     -->
     [ AuthorityVerificationFinishedIn(oi, rootKey, $E, auth, authPk) ]
 
