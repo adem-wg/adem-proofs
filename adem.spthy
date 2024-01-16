@@ -241,10 +241,10 @@ rule ReceiveOrganizationalEmblem:
   ]
   -->
   [ St_Verifier_1(~rid, <epk, emblemBody, emblemSignature>, <rootKey, endBody, endSignature>)
-  , PermitAuthorityVerificationOut(oi, rootKey, $E) ]
+  , !PermitAuthorityVerificationOut(oi, rootKey, $E) ]
 
 rule TransformPermitAuthorityVerification:
-    [ PermitAuthorityVerificationOut(oi, rootKey, $E) ]
+    [ !PermitAuthorityVerificationOut(oi, rootKey, $E) ]
     -->
     [ PermitAuthorityVerificationIn(oi, rootKey, $E) ]
 
