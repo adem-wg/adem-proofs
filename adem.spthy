@@ -296,7 +296,6 @@ rule VerifyAuthorityEndorsement:
   in
   [ Setup_AuthorityVerifier(~rid, oi, rootKey, $E)
   , !CA($CA, skCA), !Log($Log, skCT)
-  , !CA($CA, skCA), !Log($Log, skCT)
   , In(<authPk, endBody, endSignature>)
   , In(<certOiLeaf, ctSigOi>)
   , In(<certRootDLeaf, ctSigRootD>) ]
