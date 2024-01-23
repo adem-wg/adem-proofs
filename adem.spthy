@@ -251,7 +251,7 @@ rule LinearizePermitAuthorityVerification:
     -->
     [ PermitAuthorityVerificationIn(oi, rootKey, $E) ]
 
-rule VerifyOrganizationalEmblem:
+rule 0_VerifyOrganizationalEmblem:
   let emblemBody = <'emblem', $E, oi>
       endBody = <'end_int', oi, epk>
       rootKeyHash=sha256(rootKey)
@@ -318,7 +318,7 @@ rule LinearizeAuthorityVerificationFinished:
     -->
     [ AuthorityVerificationFinishedIn(oi, rootKey, $E, auth, authPk) ]
 
-rule VerifyAuthorityEndorsementsOut:
+rule 1_VerifyAuthorityEndorsementsOut:
   [ St_Verifier_2(~rid, oi, rootKey, $E), AuthorityVerificationFinishedIn(oi, rootKey, $E, auth, authPk) ]
   --[ VerifiedAuthorityEndorsement(~rid, auth, authPk, oi, rootKey) ]->
   [ St_Verifier_2(~rid, oi, rootKey, $E)

@@ -48,8 +48,9 @@ elif argv[1] == 'VerifiedAuthorityOrigin':
     'last',
     '∀',
     'St_Verifier_5',
+    'AuthorityVerificationFinished',
+    'St_Verifier_1',
     'St_Verifier_2',
-    'St_Verifier_3',
   ], lines)
 elif argv[1] == 'AuthenticEmblem':
   match = matchAgainstList([
