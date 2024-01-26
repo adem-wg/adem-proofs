@@ -129,6 +129,11 @@ rule Ltk:
   -->
   [ !Ltk($A, ~rootKey), Out(pk(~rootKey)) ]
 
+rule InternalKey:
+  [ Fr(~internalKey) ]
+  -->
+  [ !LtkInternal($A, ~internalKey), Out(pk(~internalKey)) ]
+
 rule Reveal:
   [ !Ltk($A, ~ltk) ]
   --[ CompromisedADEMParty($A, pk(~ltk))
@@ -184,17 +189,35 @@ rule Asset:
     , OnlyOnce(<'asset', $E>) ]->
   [ !AssetOf($P, $E, assetKey) ]
 
-rule EndorseAsset:
+rule RootEndorseAsset:
   [ !AssetOf($P, $E, assetKey)
   , !RootDomains($P, rootKey, oi, rootD) ]
-  --[ OnlyOnce(<'end_int', $E>) ]->
-  [ Out(sign(<'end_int', oi, pk(assetKey)>, rootKey)) ]
+  -->
+  [ Out(sign(<'root_end', oi, pk(assetKey)>, rootKey)) ]
+
+rule RootEndorseInternally:
+  [ !LtkInternal($P, internalKey)
+  , !RootDomains($P, rootKey, oi, rootD) ]
+  -->
+  [ Out(sign(<'root_end', oi, pk(internalKey)>, rootKey)) ]
 
 rule EndorseParty:
   [ !RootDomains($Endorsed, rootKeyT, oiT, rootDT)
   , !RootDomains($Endorser, rootKeyS, oiS, rootDS) ]
   -->
-  [ Out(sign(<'end_ext', oiS, oiT, pk(rootKeyT)>, rootKeyS)) ]
+  [ Out(sign(<'root_end', oiS, oiT, pk(rootKeyT)>, rootKeyS)) ]
+
+rule InternalEndorseInternally:
+  [ !LtkInternal($P, internalKey1)
+  , !LtkInternal($P, internalKey2) ]
+  -->
+  [ Out(sign(<'end', oi, pk(internalKey1)>, internalKey2)) ]
+
+rule InternalEndorseAsset:
+  [ !AssetOf($P, $E, assetKey)
+  , !LtkInternal($P, internalKey) ]
+  -->
+  [ Out(sign(<'end', oi, pk(assetKey)>, internalKey)) ]
 
 rule SendEmblem:
   [ !AssetOf($P, $E, assetKey), !RootDomains($P, rootKey, oi, rootD) ]
@@ -262,7 +285,7 @@ rule LinearizeValidToken:
   [ ValidTokenIn(t) ]
 
 rule InternalEndorsement:
-  [ ValidTokenIn(<key, oi, <'end_int', oi, pk(assetKey)>, tokenSig>) ]
+  [ ValidTokenIn(<key, oi, <'root_end', oi, pk(assetKey)>, tokenSig>) ]
   -->
   [ VerifiedPk(<oi, assetKey>) ]
 
@@ -318,25 +341,36 @@ rule IsSignedEmblem:
   [ St_Verifier_0(~rid), Out(<'SIGNED', $E>) ]
 
 rule IsOrganizationalEmblem:
-  let emblem = <embKey, oi, <'emblem', $E, oi>, emblemSig>
-      endorsement = <endKey, oi, <'end_int', oi, embKey>, endSig>
+  let endorsement = <rootKey, oi, <'root_end', oi, endorsedKey>, endSig>
   in
-  [ St_Verifier_2(~rid), ValidTokenIn(emblem), ValidTokenIn(endorsement) ]
+  [ St_Verifier_2(~rid), ValidTokenIn(endorsement) ]
+  --[  ]->
+  [ St_Verifier_3(~rid, oi, rootKey, endorsedKey) ]
+
+rule CollectInternalEndorsements:
+  let endorsement = <endorsedKey, oi, <'end', oi, newEndorsedKey>, endSig>
+  in
+  [ St_Verifier_3(~rid, oi, rootKey, endorsedKey), ValidTokenIn(endorsement) ]
+  -->
+  [ St_Verifier_3(~rid, oi, rootKey, newEndorsedKey) ]
+
+rule CollectAuthorityEndorsements:
+  let emblem = <endorsedKey, oi, <'emblem', $E, oi>, emblemSig> in
+  [ St_Verifier_3(~rid, oi, rootKey, endorsedKey), ValidTokenIn(emblem) ]
   --[ VerifiedEndorsed(~rid, oi, $E, embKey)
-    , VerifiedRootEndorsement(~rid, oi, endKey) ]->
-  [ St_Verifier_3(~rid, oi), Out(<'SIGNED', $E>), Out(<'ORGANIZATIONAL', $E, oi>) ]
+    , VerifiedRootEndorsement(~rid, oi, rootKey) ]->
+  [ St_Verifier_4(~rid, oi, rootKey), Out(<'SIGNED', $E>), Out(<'ORGANIZATIONAL', $E, oi>) ]
 
 rule IsEndorsedEmblem:
-  let emblem = <embKey, oi, <'emblem', $E, oi>, emblemSig>
-      endorsement = <endKey, auth, <'end_ext', auth, oi, rootKey>, endSig>
+  let endorsement = <endKey, auth, <'root_end', auth, oi, rootKey>, endSig>
   in
-  [ St_Verifier_3(~rid, oi), ValidTokenIn(emblem), ValidTokenIn(endorsement) ]
+  [ St_Verifier_4(~rid, oi, rootKey), ValidTokenIn(endorsement) ]
   --[ Neq(auth, oi)
     , VerifiedAuthorityEndorsement(~rid, auth, endKey, oi, rootKey) ]->
-  [ St_Verifier_3(~rid, oi), Out(<'ENDORSED', auth>) ]
+  [ St_Verifier_4(~rid, oi), Out(<'ENDORSED', auth>) ]
 
 rule FinishVerification:
-  [ St_Verifier_3(~rid, oi) ]
+  [ St_Verifier_4(~rid, oi) ]
   -->
   [ St_Verifier_0(~rid) ]
 
