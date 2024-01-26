@@ -270,7 +270,7 @@ rule VerifyRootToken:
 
 rule VerifyInternalToken:
   let t = <key, oi, tokenBody, tokenSig> in
-  [ Setup_TokenVerifier(~rid), PermitTokenVerificationIn(t), VerifiedPk(<oi, key>) ]
+  [ Setup_TokenVerifier(~rid), PermitTokenVerificationIn(t) ]
   --[ Eq(verify(tokenSig, tokenBody, key), true) ]->
   [ St_TokenVerifier_0(~rid), ValidTokenOut(t) ]
 
@@ -283,11 +283,6 @@ rule LinearizeValidToken:
   [ !ValidToken(t) ]
   -->
   [ ValidTokenIn(t) ]
-
-rule InternalEndorsement:
-  [ ValidTokenIn(<key, oi, <'root_end', oi, pk(assetKey)>, tokenSig>) ]
-  -->
-  [ VerifiedPk(<oi, assetKey>) ]
 
 /* ---------------------------- */
 /*   Protocol rules: Verifiers  */
