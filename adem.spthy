@@ -239,14 +239,9 @@ rule VerifyUnsignedEmblem:
   -->
   [ St_TokenVerifier_0(~rid), ValidTokenOut(t) ]
 
-rule VerifyAnonToken:
-  let t = <key, tokenBody, tokenSig> in
-  [ Setup_TokenVerifier(~rid), PermitTokenVerificationIn(t) ]
-  --[ Eq(verify(tokenSig, tokenBody, key), true) ]->
-  [ St_TokenVerifier_0(~rid), ValidTokenOut(t) ]
-
-rule VerifyRootToken:
-  let t = <key, oi, tokenBody, tokenSig>
+rule VerifyRootEndorsement:
+  let tokenBody = <'root_end', endOi, endKey>
+      t = <key, oi, tokenBody, tokenSig>
       rootKeyHash = sha256(key)
       certOi = <'cert', $CA, oi, tlsPk>
       certOiLeaf = <'MHTLeaf', $Log, <certOi, certOiSig>>
@@ -268,8 +263,30 @@ rule VerifyRootToken:
     , UsedRootKey(oi, key) ]->
   [ St_TokenVerifier_0(~rid), ValidTokenOut(t) ]
 
-rule VerifyInternalToken:
-  let t = <key, oi, tokenBody, tokenSig> in
+rule VerifyInternalEndorsement:
+  let tokenBody = <'end', oi, endKey>
+      t = <key, oi, tokenBody, tokenSig> in
+  [ Setup_TokenVerifier(~rid), PermitTokenVerificationIn(t) ]
+  --[ Eq(verify(tokenSig, tokenBody, key), true) ]->
+  [ St_TokenVerifier_0(~rid), ValidTokenOut(t) ]
+
+rule VerifyAnonInternalEndorsement:
+  let tokenBody = <'end', endKey>
+      t = <key, tokenBody, tokenSig> in
+  [ Setup_TokenVerifier(~rid), PermitTokenVerificationIn(t) ]
+  --[ Eq(verify(tokenSig, tokenBody, key), true) ]->
+  [ St_TokenVerifier_0(~rid), ValidTokenOut(t) ]
+
+rule VerifyOrganizationalEmblem:
+  let tokenBody = <'emblem', $E, oi>
+      t = <key, oi, tokenBody, tokenSig> in
+  [ Setup_TokenVerifier(~rid), PermitTokenVerificationIn(t) ]
+  --[ Eq(verify(tokenSig, tokenBody, key), true) ]->
+  [ St_TokenVerifier_0(~rid), ValidTokenOut(t) ]
+
+rule VerifyAnonEmblem:
+  let tokenBody = <'emblem', $E>
+      t = <key, oi, tokenBody, tokenSig> in
   [ Setup_TokenVerifier(~rid), PermitTokenVerificationIn(t) ]
   --[ Eq(verify(tokenSig, tokenBody, key), true) ]->
   [ St_TokenVerifier_0(~rid), ValidTokenOut(t) ]
@@ -339,8 +356,28 @@ rule IsOrganizationalEmblem:
   let endorsement = <rootKey, oi, <'root_end', oi, endorsedKey>, endSig>
   in
   [ St_Verifier_2(~rid), ValidTokenIn(endorsement) ]
-  --[  ]->
+  -->
   [ St_Verifier_3(~rid, oi, rootKey, endorsedKey) ]
+
+rule IsAnonEndorsedEmblem:
+  let endorsement = <endKey, <'end', endorsedKey>, endSig>
+  in
+  [ St_Verifier_2(~rid), ValidTokenIn(endorsement) ]
+  -->
+  [ St_Verifier_5(~rid, endorsedKey) ]
+
+rule CollectAnonEndorsements:
+  let endorsement = <endKey, <'end', endorsedKey>, endSig>
+  in
+  [ St_Verifier_5(~rid, endKey), ValidTokenIn(endorsement) ]
+  -->
+  [ St_Verifier_5(~rid, endorsedKey) ]
+
+rule FinishAnonEndLoop:
+  let emblem = <endorsedKey, <'emblem', $E>, emblemSig> in
+  [ St_Verifier_5(~rid, endorsedKey), ValidTokenIn(emblem) ]
+  -->
+  [ St_Verifier_0(~rid), Out(<'SIGNED', $E>) ]
 
 rule CollectInternalEndorsements:
   let endorsement = <endorsedKey, oi, <'end', oi, newEndorsedKey>, endSig>
