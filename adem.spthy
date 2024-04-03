@@ -205,7 +205,7 @@ rule EndorseParty:
   [ !RootDomains($Endorsed, rootKeyT, oiT, rootDT)
   , !RootDomains($Endorser, rootKeyS, oiS, rootDS) ]
   -->
-  [ Out(sign(<'root_end', oiS, oiT, pk(rootKeyT)>, rootKeyS)) ]
+  [ Out(sign(<'root_end', oiT, pk(rootKeyT)>, rootKeyS)) ]
 
 rule InternalEndorseInternally:
   [ !LtkInternal($P, internalKey1)
@@ -422,7 +422,7 @@ lemma TLSKeyLeakRecursion[use_induction,reuse]:
 lemma WrongCAKeyUseImpliesCompromise[reuse]:
   "All tag m ca caSk #t1 #t2.
         ( CASk(ca, caSk) @ #t1
-        & !KU(<<tag, m>, sign(<'tag', m>, caSk)>) @ #t2
+        & !KU(<<tag, m>, sign(<tag, m>, caSk)>) @ #t2
         & not (tag = 'cert'))
     ==> (Ex #x. CompromisedCA(ca) @ #x & CompromisedParty(ca) @ #x)"
 
