@@ -286,7 +286,7 @@ rule VerifyOrganizationalEmblem:
 
 rule VerifyAnonEmblem:
   let tokenBody = <'emblem', $E>
-      t = <key, oi, tokenBody, tokenSig> in
+      t = <key, tokenBody, tokenSig> in
   [ Setup_TokenVerifier(~rid), PermitTokenVerificationIn(t) ]
   --[ Eq(verify(tokenSig, tokenBody, key), true) ]->
   [ St_TokenVerifier_0(~rid), ValidTokenOut(t) ]
@@ -309,11 +309,6 @@ rule Verifier_init:
   [ Fr(~rid) ]
   -->
   [ Setup_Verifier(~rid) ]
-
-rule Invalid:
-  [ Setup_Verifier(~rid) ]
-  -->
-  [ St_Verifier_0(~rid), Out('INVALID') ]
 
 rule FinishSetup:
   [ Setup_Verifier(~rid) ]
@@ -340,15 +335,20 @@ rule ReceiveTokenFinish:
   -->
   [ St_Verifier_2(~rid) ]
 
+rule IsInvalid:
+  [ St_Verifier_2(~rid) ]
+  -->
+  [ St_Verifier_0(~rid), Out('INVALID') ]
+
 rule IsUnsignedEmblem:
-  let t = <'emblem', $E> in
-  [ St_Verifier_2(~rid), ValidTokenIn(t) ]
+  let emblem = <'emblem', $E> in
+  [ St_Verifier_2(~rid), ValidTokenIn(emblem) ]
   -->
   [ St_Verifier_0(~rid), Out(<'UNSIGNED', $E>) ]
 
 rule IsSignedEmblem:
-  let t = <key, <'emblem', $E>, tokenSig> in
-  [ St_Verifier_2(~rid), ValidTokenIn(t) ]
+  let emblem = <key, <'emblem', $E>, tokenSig> in
+  [ St_Verifier_2(~rid), ValidTokenIn(emblem) ]
   -->
   [ St_Verifier_0(~rid), Out(<'SIGNED', $E>) ]
 
@@ -389,20 +389,20 @@ rule CollectInternalEndorsements:
 rule CollectAuthorityEndorsements:
   let emblem = <endorsedKey, oi, <'emblem', $E, oi>, emblemSig> in
   [ St_Verifier_3(~rid, oi, rootKey, endorsedKey), ValidTokenIn(emblem) ]
-  --[ VerifiedEndorsed(~rid, oi, $E, embKey)
+  --[ VerifiedEndorsed(~rid, oi, $E, endorsedKey)
     , VerifiedRootEndorsement(~rid, oi, rootKey) ]->
   [ St_Verifier_4(~rid, oi, rootKey), Out(<'SIGNED', $E>), Out(<'ORGANIZATIONAL', $E, oi>) ]
 
 rule IsEndorsedEmblem:
-  let endorsement = <endKey, auth, <'root_end', auth, oi, rootKey>, endSig>
+  let endorsement = <endKey, auth, <'root_end', oi, rootKey>, endSig>
   in
   [ St_Verifier_4(~rid, oi, rootKey), ValidTokenIn(endorsement) ]
   --[ Neq(auth, oi)
     , VerifiedAuthorityEndorsement(~rid, auth, endKey, oi, rootKey) ]->
-  [ St_Verifier_4(~rid, oi), Out(<'ENDORSED', auth>) ]
+  [ St_Verifier_4(~rid, oi, rootKey), Out(<'ENDORSED', auth>) ]
 
 rule FinishVerification:
-  [ St_Verifier_4(~rid, oi) ]
+  [ St_Verifier_4(~rid, oi, rootKey) ]
   -->
   [ St_Verifier_0(~rid) ]
 
