@@ -209,13 +209,15 @@ rule EndorseParty:
 
 rule InternalEndorseInternally:
   [ !LtkInternal($P, internalKey1)
-  , !LtkInternal($P, internalKey2) ]
+  , !LtkInternal($P, internalKey2)
+  , !RootDomains($P, rootKey, oi, rootD) ]
   -->
   [ Out(sign(<'end', oi, pk(internalKey1)>, internalKey2)) ]
 
 rule InternalEndorseAsset:
   [ !AssetOf($P, $E, assetKey)
-  , !LtkInternal($P, internalKey) ]
+  , !LtkInternal($P, internalKey)
+  , !RootDomains($P, rootKey, oi, rootD) ]
   -->
   [ Out(sign(<'end', oi, pk(assetKey)>, internalKey)) ]
 
