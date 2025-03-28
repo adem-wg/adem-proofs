@@ -293,28 +293,37 @@ lemma CanDispute2:
   "Ex p d #x. RootKeyDispute(p, d) @ #x"
 
 lemma CAAccountability:
-  "All p log ca d pk skCA #x #y #z.
-        ( Dispute(p, log, ca, d, pk) @ #x
-        & CASk(ca, skCA) @ #y
-        & LogInclusion(log, <<'cert', ca, d, pk>, sign(<'cert', ca, d, pk>, skCA)>) @ #z)
+  "All p log ca d pk skCA #t1 #t2 #t3.
+        // Condition
+        ( CASk(ca, skCA) @ #t1
+        // Judge input
+        & Dispute(p, log, ca, d, pk) @ #t2
+        & LogInclusion(log, <<'cert', ca, d, pk>, sign(<'cert', ca, d, pk>, skCA)>) @ #t3)
+        // Verdict
     ==> (Ex #a. CompromisedParty(ca) @ #a)"
 
 lemma AuthorityAccountability:
   "All p pAuth oi rkFalse id oiAuth rkAuth #t1 #t2 #t3.
+        // Condition
         ( IsRootPK(pAuth, oiAuth, rkAuth) @ #t1
+        // Judge input
         & RootKeyDispute(p, <oi, sha256(rkFalse)>) @ #t2
         & VerifiedAuthorityEndorsement(id, oiAuth, rkAuth, oi, rkFalse) @ #t3)
+        // Verdict
     ==> (Ex #a. CompromisedParty(pAuth) @ #a)"
 
 lemma PPAccountability:
   "All p oi rk e1 assetKey id #t1 #t2 #t3.
+        // Condition
         ( IsRootPK(p, oi, rk) @ #t1
-        & VerifiedRootEndorsement(id, oi, rk) @ #t2
-        & VerifiedEndorsed(id, oi, e1, assetKey) @ #t3
         // NOTE: It is correct to not require that e1 and e2 are the same
         // because in our threat model, the attacker could use they assetKey
         // for one asset anyways, but not in this model.
-        & (not Ex e2 #x. IsAsset(p, e2, assetKey) @ #x))
+        & (not Ex e2 #x. IsAsset(p, e2, assetKey) @ #x)
+        // Judge input
+        & VerifiedRootEndorsement(id, oi, rk) @ #t2
+        & VerifiedEndorsed(id, oi, e1, assetKey) @ #t3)
+        // Verdict
     ==> (Ex #a. CompromisedParty(p) @ #a)"
 
 lemma UsedRootKey1:
