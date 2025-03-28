@@ -267,7 +267,7 @@ lemma AuthenticEmblem:
             ==> ( (Ex p #y #z. OI(p, authOI) @ #y & CompromisedADEMParty(p, authPk) @ #z)
                 | (not Ex p #y. IsRootPK(p, authOI, authPk) @ #y))))"
 
-rule MonitorLogs:
+rule MonitorMaliciousTLSKeys:
   let cert = <'cert', $SigningCA, d, pkTLS>
   in
   [ !MHTLeaf($Log, <cert, sig>), !TLSKey($P, $CA, d, skTLS) ]
@@ -275,7 +275,16 @@ rule MonitorLogs:
     , Dispute($P, $Log, $SigningCA, d, pkTLS) ]->
   []
 
-lemma CanDisupte:
+rule MonitorMaliciousRootKeys:
+  let d = <oi, rk_h>
+      cert = <'cert', $SigningCA, d, pkTLS>
+  in
+  [ !MHTLeaf($Log, <cert, sig>), !RootSetup($P, rootKey, oi, rootD) ]
+  --[ Neq(rk_h, sha256(pk(rootKey)))
+    , RootKeyDispute($P, d) ]->
+  []
+
+lemma CanDispute:
   exists-trace
   "Ex p log ca d pk #t. Dispute(p, log, ca, d, pk) @ #t"
 
@@ -287,11 +296,10 @@ lemma CAAccountability:
     ==> (Ex #a. CompromisedParty(ca) @ #a)"
 
 lemma AuthorityAccountability:
-  "All p pAuth oi rk_true rk_false id oiAuth rkAuth #t1 #t2 #t3.
-        ( IsRootPK(p, oi, rk_true) @ #t1
-        & IsRootPK(pAuth, oiAuth, rkAuth) @ #t2
-        & VerifiedAuthorityEndorsement(id, oiAuth, rkAuth, oi, rk_false) @ #t3
-        & not (rk_true = rk_false))
+  "All p pAuth oi rkFalse id oiAuth rkAuth #t1 #t2 #t3.
+        ( IsRootPK(pAuth, oiAuth, rkAuth) @ #t1
+        & RootKeyDispute(p, <oi, sha256(rkFalse)>) @ #t2
+        & VerifiedAuthorityEndorsement(id, oiAuth, rkAuth, oi, rkFalse) @ #t3)
     ==> (Ex #a. CompromisedParty(pAuth) @ #a)"
 
 lemma PPAccountability:
