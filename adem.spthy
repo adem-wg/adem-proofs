@@ -313,6 +313,16 @@ lemma PPAccountability:
         & (not Ex e2 #x. IsAsset(p, e2, assetKey) @ #x))
     ==> (Ex #a. CompromisedParty(p) @ #a)"
 
+lemma UsedRootKey1:
+  "All id oi rk #t.
+        VerifiedRootEndorsement(id, oi, rk) @ #t
+    ==> UsedRootKey(oi, rk) @ #t"
+
+lemma UsedRootKey2:
+  "All id oiAuth rkAuth oi rkFalse #t.
+        VerifiedAuthorityEndorsement(id, oiAuth, rkAuth, oi, rkFalse) @ #t
+    ==> UsedRootKey(oiAuth, rkAuth) @ #t"
+
 lemma RootKeyUse:
   "All oi rk #t.
         UsedRootKey(oi, rk) @ #t
