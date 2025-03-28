@@ -275,6 +275,10 @@ rule MonitorMaliciousTLSKeys:
     , Dispute($P, $Log, $SigningCA, d, pkTLS) ]->
   []
 
+lemma CanDispute1:
+  exists-trace
+  "Ex p log ca d pk #t. Dispute(p, log, ca, d, pk) @ #t"
+
 rule MonitorMaliciousRootKeys:
   let d = <oi, rk_h>
       cert = <'cert', $SigningCA, d, pkTLS>
@@ -284,9 +288,9 @@ rule MonitorMaliciousRootKeys:
     , RootKeyDispute($P, d) ]->
   []
 
-lemma CanDispute:
+lemma CanDispute2:
   exists-trace
-  "Ex p log ca d pk #t. Dispute(p, log, ca, d, pk) @ #t"
+  "Ex p d #x. RootKeyDispute(p, d) @ #x"
 
 lemma CAAccountability:
   "All p log ca d pk skCA #x #y #z.
