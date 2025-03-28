@@ -23,6 +23,7 @@ rule SubdomainRegister:
 rule DomainCompromise:
   [ In($A), In(d) ]
   --[ CompromisedDomainOwner($A)
+    , CompromisedParty($A)
     , SomeCompromise() ]->
   [ DomainRegister($A, d) ]
 
@@ -130,6 +131,7 @@ rule Reveal:
 rule RevealAsset:
   [ !LtkAsset($A, ~ltk) ]
   --[ CompromisedAssetKey($A, pk(~ltk))
+    , CompromisedParty($A)
     , SomeCompromise() ]->
   [ Out(~ltk) ]
 
