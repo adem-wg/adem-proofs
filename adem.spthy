@@ -281,6 +281,10 @@ lemma CanDispute1:
   exists-trace
   "Ex p log ca d pk #t. Dispute(p, log, ca, d, pk) @ #t"
 
+// NOTE: We cannot annotate this rule with Dispute too (which would imply that
+// we can blame the CA by CAAccountability) because we cannot distinguish the
+// case in which the domain of the party was compromised, adding a malicious
+// root key using the correct TLS key.
 rule MonitorMaliciousRootKeys:
   let d = <oi, rk_h>
       cert = <'cert', $SigningCA, d, pkTLS>
