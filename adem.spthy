@@ -270,8 +270,10 @@ lemma AuthenticEmblem:
 rule MonitorMaliciousTLSKeys:
   let cert = <'cert', $SigningCA, d, pkTLS>
   in
-  [ !MHTLeaf($Log, <cert, sig>), !TLSKey($P, $CA, d, skTLS) ]
+  [ !MHTLeaf($Log, <cert, sig>), !TLSKey($P, $CA, d, skTLS)
+  , !CA($SigningCA, skCA) ]
   --[ Neq(pk(skTLS), pkTLS)
+    , Eq(verify(sig, cert, pk(skCA)), true)
     , Dispute($P, $Log, $SigningCA, d, pkTLS) ]->
   []
 
@@ -293,11 +295,9 @@ lemma CanDispute2:
   "Ex p d #x. RootKeyDispute(p, d) @ #x"
 
 lemma CAAccountability:
-  "All p log ca d pk skCA #t1 #t2 #t3.
-        // Condition
-        ( CASk(ca, skCA) @ #t1
+  "All p log ca d pk skCA #t2 #t3.
         // Judge input
-        & Dispute(p, log, ca, d, pk) @ #t2
+        ( Dispute(p, log, ca, d, pk) @ #t2
         & LogInclusion(log, <<'cert', ca, d, pk>, sign(<'cert', ca, d, pk>, skCA)>) @ #t3)
         // Verdict
     ==> (Ex #a. CompromisedParty(ca) @ #a)"

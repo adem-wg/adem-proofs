@@ -64,6 +64,8 @@ elif argv[1] == 'CAAccountability':
     '!KU( sign(',
     'SignatureStore',
     'LogInclusion',
+    '!CA',
+    '!MHTLeaf',
     '!TLSKey',
   ], lines)
 elif argv[1] == 'AuthorityAccountability':
