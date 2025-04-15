@@ -277,9 +277,16 @@ rule MonitorMaliciousTLSKeys:
     , Dispute($P, $Log, $SigningCA, d, pkTLS) ]->
   []
 
+rule AdversarialDispute:
+  [ In(d), In(pk) ]
+  --[ Dispute($P, $Log, $SigningCA, d, pk)
+    , CompromisedParty($P) ]->
+  []
+
 lemma CanDispute1:
   exists-trace
-  "Ex p log ca d pk #t. Dispute(p, log, ca, d, pk) @ #t"
+  "Ex p log ca d pk #t. Dispute(p, log, ca, d, pk) @ #t
+      & (not Ex #x. CompromisedParty(p) @ #x)"
 
 // NOTE: We cannot annotate this rule with Dispute too (which would imply that
 // we can blame the CA by CAAccountability) because we cannot distinguish the
@@ -294,9 +301,16 @@ rule MonitorMaliciousRootKeys:
     , RootKeyDispute($P, d) ]->
   []
 
+rule AdversarialRootKeyDispute:
+  [ In(d) ]
+  --[ RootKeyDispute($P, d)
+    , CompromisedParty($P) ]->
+  []
+
 lemma CanDispute2:
   exists-trace
-  "Ex p d #x. RootKeyDispute(p, d) @ #x"
+  "Ex p d #x. RootKeyDispute(p, d) @ #x
+      & (not Ex #t. CompromisedParty(p) @ #t)"
 
 lemma CAAccountability:
   "All p log ca d pk skCA #t2 #t3.
@@ -304,7 +318,8 @@ lemma CAAccountability:
         ( Dispute(p, log, ca, d, pk) @ #t2
         & LogInclusion(log, <<'cert', ca, d, pk>, sign(<'cert', ca, d, pk>, skCA)>) @ #t3)
         // Verdict
-    ==> (Ex #a. CompromisedParty(ca) @ #a)"
+    ==>   (Ex #a. CompromisedParty(ca) @ #a)
+        | (Ex #a. CompromisedParty(p) @ #a)"
 
 lemma AuthorityAccountability:
   "All p pAuth oi rkFalse id oiAuth rkAuth #t1 #t2 #t3.
@@ -314,7 +329,8 @@ lemma AuthorityAccountability:
         & RootKeyDispute(p, <oi, sha256(rkFalse)>) @ #t2
         & VerifiedAuthorityEndorsement(id, oiAuth, rkAuth, oi, rkFalse) @ #t3)
         // Verdict
-    ==> (Ex #a. CompromisedParty(pAuth) @ #a)"
+    ==>   (Ex #a. CompromisedParty(pAuth) @ #a)
+        | (Ex #a. CompromisedParty(p) @ #a)"
 
 lemma PPAccountability:
   "All p oi rk e1 assetKey id #t1 #t2 #t3.

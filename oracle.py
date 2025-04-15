@@ -59,6 +59,7 @@ elif argv[1] == 'AuthenticEmblem':
   ], lines)
 elif argv[1] == 'CAAccountability':
   match = matchAgainstList([
+    'Dispute',
     re.compile(r'!TLSKey\(.+, ~skCA'),
     '!KU( ~skCA',
     '!KU( sign(',
@@ -70,9 +71,11 @@ elif argv[1] == 'CAAccountability':
   ], lines)
 elif argv[1] == 'AuthorityAccountability':
   match = matchAgainstList([
+    'Dispute',
     '!KU( sign(<\'end_ext\'',
     re.compile(r'!Ltk\( .+, ~'),
     '!KU( ~rootKey',
+    'RootSetup',
   ], lines)
 elif argv[1] == 'PPAccountability':
   match = matchAgainstList([
