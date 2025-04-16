@@ -1,16 +1,16 @@
 # ADEM Proofs
 
 This repository contains formal proofs of ADEM, An Authentic Digital EMblem, encoded for the [Tamarin model checker](https://tamarin-prover.github.io/).
-We were using Tamarin version 1.8.0 to find and check proofs.
+We used Tamarin version 1.10.0 to find and check proofs.
 
-We provide details on what we prove here in our paper, Section 4.
-You can find the paper here: https://dl.acm.org/doi/10.1145/3576915.3616578
+The model and proofs in repository are described in the corresponding paper: https://dl.acm.org/doi/10.1145/3576915.3616578
+Since publication, the model has been slightly updated.
 
 ## Prerequisites
 
 To use our formal model and proofs, you need to install:
 
-- The [Tamarin prover v1.8.0](https://tamarin-prover.github.io/manual/master/book/002_installation.html).
+- The [Tamarin prover v1.10.0](https://tamarin-prover.github.io/manual/master/book/002_installation.html).
 Probably, later versions will work as well, but v1.8.0 was used during creation of the model and proofs.
 - [Python3](https://www.python.org/downloads/) to run the custom proof heuristics provided in `oracle.py`.
 
@@ -28,7 +28,7 @@ export LANG=en_US.UTF-8
 |------|-------------|
 | `proofs/proof.spthy` | Proofs of our formal model. |
 | `adem.spthy` | The formal model of ADEM. |
-| `batch-run-all.sh` | A script to prove all lemmas but `Executability`. This lemma must be proven manually (see note below). |
+| `batch-run-all.sh` | A script to prove all lemmas but `CanReceiveEmblem`. This lemma must be proven manually (see note below). |
 | `oracle.py` | Custom proof heuristics to guide proof search. |
 
 ## Verifying and Finding Proofs
