@@ -84,6 +84,11 @@ elif argv[1] == 'PPAccountability':
   ], lines)
 elif argv[1] == 'RootKeyUse':
   match = matchAgainstList(['RootKeyResponse'], lines)
+elif argv[1] == 'CanDispute2':
+  match = matchAgainstList([
+    '!DomainOwner',
+    '!KU( sign',
+  ], lines)
 
 if match is not None:
   print(match)
