@@ -69,13 +69,20 @@ elif argv[1] == 'CAAccountability':
     '!MHTLeaf',
     '!TLSKey',
   ], lines)
-elif argv[1] == 'AuthorityAccountability':
+elif argv[1] == 'DisputeAuthorityAccountability':
   match = matchAgainstList([
     'Dispute',
     '!KU( sign(<\'end_ext\'',
     re.compile(r'!Ltk\( .+, ~'),
     '!KU( ~rootKey',
     'RootSetup',
+  ], lines)
+elif argv[1] == 'AuthorityAccountability':
+  match = matchAgainstList([
+    '!Ltk',
+    '!KU( sign(<\'end_ext\'',
+    'RootKeyVerified',
+    '!KU( ~rootKey',
   ], lines)
 elif argv[1] == 'PPAccountability':
   match = matchAgainstList([

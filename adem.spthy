@@ -328,7 +328,7 @@ lemma CAAccountability:
         // Verdict
     ==> (Ex #a. CompromisedParty(ca) @ #a)"
 
-lemma AuthorityAccountability:
+lemma DisputeAuthorityAccountability:
   "All p pAuth oi rkFalse id oiAuth rkAuth #t1 #t2 #t3.
         // Condition
         ( IsRootPK(pAuth, oiAuth, rkAuth) @ #t1
@@ -339,13 +339,24 @@ lemma AuthorityAccountability:
         // Verdict
     ==> (Ex #a. CompromisedParty(pAuth) @ #a)"
 
+// NOTE: It is correct to not require that e1 and e2 are the same in both
+// constraints below because in our threat model, the attacker could use they
+// assetKey for one asset anyways, but not in this model.
+
+lemma AuthorityAccountability:
+  "All pAuth oiAuth rkAuth oi rk id #t1 #t2.
+        // Condition
+        ( IsRootPK(pAuth, oiAuth, rkAuth) @ #t1
+        & (not Ex p #x. IsRootPK(p, oi, rk) @ #x)
+        // Judge input
+        & VerifiedAuthorityEndorsement(id, oiAuth, rkAuth, oi, rk) @ #t2)
+        // Verdict
+    ==> (Ex #a. CompromisedParty(pAuth) @ #a)"
+
 lemma PPAccountability:
   "All p oi rk e1 assetKey id #t1 #t2 #t3.
         // Condition
         ( IsRootPK(p, oi, rk) @ #t1
-        // NOTE: It is correct to not require that e1 and e2 are the same
-        // because in our threat model, the attacker could use they assetKey
-        // for one asset anyways, but not in this model.
         & (not Ex e2 #x. IsAsset(p, e2, assetKey) @ #x)
         // Judge input
         & VerifiedRootEndorsement(id, oi, rk) @ #t2
@@ -359,8 +370,8 @@ lemma UsedRootKey1:
     ==> UsedRootKey(oi, rk) @ #t"
 
 lemma UsedRootKey2:
-  "All id oiAuth rkAuth oi rkFalse #t.
-        VerifiedAuthorityEndorsement(id, oiAuth, rkAuth, oi, rkFalse) @ #t
+  "All id oiAuth rkAuth oi rk #t.
+        VerifiedAuthorityEndorsement(id, oiAuth, rkAuth, oi, rk) @ #t
     ==> UsedRootKey(oiAuth, rkAuth) @ #t"
 
 lemma RootKeyUse:
