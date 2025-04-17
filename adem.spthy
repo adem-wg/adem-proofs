@@ -320,23 +320,24 @@ lemma CanDispute2:
 
 lemma CAAccountability:
   "All p log ca d pk skCA #t2 #t3.
+        // Condition
+        ( (not Ex #a. CompromisedParty(p) @ #a)
         // Judge input
-        ( Dispute(p, log, ca, d, pk) @ #t2
+        & Dispute(p, log, ca, d, pk) @ #t2
         & LogInclusion(log, <<'cert', ca, d, pk>, sign(<'cert', ca, d, pk>, skCA)>) @ #t3)
         // Verdict
-    ==>   (Ex #a. CompromisedParty(ca) @ #a)
-        | (Ex #a. CompromisedParty(p) @ #a)"
+    ==> (Ex #a. CompromisedParty(ca) @ #a)"
 
 lemma AuthorityAccountability:
   "All p pAuth oi rkFalse id oiAuth rkAuth #t1 #t2 #t3.
         // Condition
         ( IsRootPK(pAuth, oiAuth, rkAuth) @ #t1
+        & (not Ex #a. CompromisedParty(p) @ #a)
         // Judge input
         & RootKeyDispute(p, <oi, sha256(rkFalse)>) @ #t2
         & VerifiedAuthorityEndorsement(id, oiAuth, rkAuth, oi, rkFalse) @ #t3)
         // Verdict
-    ==>   (Ex #a. CompromisedParty(pAuth) @ #a)
-        | (Ex #a. CompromisedParty(p) @ #a)"
+    ==> (Ex #a. CompromisedParty(pAuth) @ #a)"
 
 lemma PPAccountability:
   "All p oi rk e1 assetKey id #t1 #t2 #t3.
