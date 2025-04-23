@@ -63,6 +63,7 @@ elif argv[1] == 'CAAccountability':
     re.compile(r'!TLSKey\(.+, ~skCA'),
     '!KU( ~skCA',
     '!KU( sign(',
+    '!DomainOwner',
     'SignatureStore',
     'LogInclusion',
     '!CA',

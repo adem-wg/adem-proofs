@@ -272,7 +272,23 @@ rule MonitorMaliciousTLSKeys:
   in
   [ !MHTLeaf($Log, <cert, sig>), !TLSKey($P, $CA, d, skTLS)
   , !CA($SigningCA, skCA) ]
-  --[ Neq(pk(skTLS), pkTLS)
+  --[ TLSKeyDispute()
+    ,  Neq(pk(skTLS), pkTLS)
+    , Eq(verify(sig, cert, pk(skCA)), true) ]->
+  [ SendDispute($P, $Log, $SigningCA, d, pkTLS) ]
+
+// NOTE: We cannot annotate this rule with Dispute too (which would imply that
+// we can blame the CA by CAAccountability) because we cannot distinguish the
+// case in which the domain of the party was compromised, adding a malicious
+// root key using the correct TLS key.
+rule MonitorMaliciousRootKeys:
+  let d = <oi, rk_h>
+      cert = <'cert', $SigningCA, d, pkTLS>
+  in
+  [ !MHTLeaf($Log, <cert, sig>), !RootSetup($P, rootKey, oi, rootD)
+  , !CA($SigningCA, skCA) ]
+  --[ RootKeyDispute()
+    , Neq(rk_h, sha256(pk(rootKey)))
     , Eq(verify(sig, cert, pk(skCA)), true) ]->
   [ SendDispute($P, $Log, $SigningCA, d, pkTLS) ]
 
@@ -289,34 +305,14 @@ rule DisputeReceived:
 lemma CanDispute1:
   exists-trace
   "Ex p log ca d pk #t. Dispute(p, log, ca, d, pk) @ #t
+      & (not Ex #x. RootKeyDispute() @ #x)
       & (not Ex #x. CompromisedParty(p) @ #x)"
-
-// NOTE: We cannot annotate this rule with Dispute too (which would imply that
-// we can blame the CA by CAAccountability) because we cannot distinguish the
-// case in which the domain of the party was compromised, adding a malicious
-// root key using the correct TLS key.
-rule MonitorMaliciousRootKeys:
-  let d = <oi, rk_h>
-      cert = <'cert', $SigningCA, d, pkTLS>
-  in
-  [ !MHTLeaf($Log, <cert, sig>), !RootSetup($P, rootKey, oi, rootD) ]
-  --[ Neq(rk_h, sha256(pk(rootKey))) ]->
-  [ SendRootKeyDispute($P, d) ]
-
-rule AdversarialRootKeyDispute:
-  [ In(d) ]
-  --[ CompromisedParty($P) ]->
-  [ SendRootKeyDispute($P, d) ]
-
-rule RootKeyDisputeReceived:
-  [ SendRootKeyDispute($P, d) ]
-  --[ RootKeyDispute($P, d) ]->
-  []
 
 lemma CanDispute2:
   exists-trace
-  "Ex p d #x. RootKeyDispute(p, d) @ #x
-      & (not Ex #t. CompromisedParty(p) @ #t)"
+  "Ex p log ca d pk #t. Dispute(p, log, ca, d, pk) @ #t
+      & (not Ex #x. TLSKeyDispute() @ #x)
+      & (not Ex #x. CompromisedParty(p) @ #x)"
 
 lemma CAAccountability:
   "All p log ca d pk skCA #t2 #t3.
@@ -328,21 +324,6 @@ lemma CAAccountability:
         // Verdict
     ==> (Ex #a. CompromisedParty(ca) @ #a)"
 
-lemma DisputeAuthorityAccountability:
-  "All p pAuth oi rkFalse id oiAuth rkAuth #t1 #t2 #t3.
-        // Condition
-        ( IsRootPK(pAuth, oiAuth, rkAuth) @ #t1
-        & (not Ex #a. CompromisedParty(p) @ #a)
-        // Judge input
-        & RootKeyDispute(p, <oi, sha256(rkFalse)>) @ #t2
-        & VerifiedAuthorityEndorsement(id, oiAuth, rkAuth, oi, rkFalse) @ #t3)
-        // Verdict
-    ==> (Ex #a. CompromisedParty(pAuth) @ #a)"
-
-// NOTE: It is correct to not require that e1 and e2 are the same in both
-// constraints below because in our threat model, the attacker could use they
-// assetKey for one asset anyways, but not in this model.
-
 lemma AuthorityAccountability:
   "All pAuth oiAuth rkAuth oi rk id #t1 #t2.
         // Condition
@@ -353,6 +334,9 @@ lemma AuthorityAccountability:
         // Verdict
     ==> (Ex #a. CompromisedParty(pAuth) @ #a)"
 
+// NOTE: It is correct to not require that e1 and e2 are the same in the
+// constraint below because in our threat model, the attacker could use they
+// assetKey for one asset anyways, but not in this model.
 lemma PPAccountability:
   "All p oi rk e1 assetKey id #t1 #t2 #t3.
         // Condition
